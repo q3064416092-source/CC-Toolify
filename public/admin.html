@@ -1,0 +1,306 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CC-Toolify Admin</title>
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --panel: rgba(255, 252, 247, 0.88);
+      --ink: #1f1d1a;
+      --muted: #6d655d;
+      --line: rgba(31, 29, 26, 0.12);
+      --accent: #b34a2f;
+      --accent-soft: #edd5ca;
+      --ok: #1f7a57;
+      --shadow: 0 20px 60px rgba(64, 40, 18, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(179, 74, 47, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(31, 122, 87, 0.12), transparent 24%),
+        linear-gradient(180deg, #f9f3ea 0%, #f1e5d4 100%);
+      min-height: 100vh;
+    }
+
+    .shell {
+      width: min(1100px, calc(100vw - 32px));
+      margin: 32px auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    h1, h2 { margin: 0 0 12px; }
+    p { color: var(--muted); margin: 0 0 14px; }
+    .grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    label { display: block; font-size: 14px; margin-bottom: 6px; color: var(--muted); }
+    input, select, textarea, button {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 12px 14px;
+      font: inherit;
+      background: rgba(255,255,255,0.8);
+      color: var(--ink);
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: white;
+      border: none;
+      transition: transform .16s ease, opacity .16s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.secondary {
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row > * { flex: 1; }
+    .list {
+      display: grid;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255,255,255,0.6);
+    }
+
+    .meta {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .status { color: var(--ok); font-weight: 700; }
+    .hidden { display: none; }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="card" id="loginCard">
+      <h1>CC-Toolify</h1>
+      <p>Admin surface for provider setup, model mapping, and recent request visibility.</p>
+      <div class="row">
+        <div>
+          <label for="password">Admin password</label>
+          <input id="password" type="password" autocomplete="current-password" />
+        </div>
+        <div style="align-self:end;">
+          <button id="loginBtn">Sign in</button>
+        </div>
+      </div>
+      <p id="loginMessage"></p>
+    </section>
+
+    <section class="card hidden" id="appCard">
+      <div class="row">
+        <div>
+          <h2>Providers</h2>
+          <p>Add upstream OpenAI-compatible or Anthropic-compatible endpoints.</p>
+        </div>
+        <div style="align-self:center; text-align:right;">
+          <button class="secondary" id="logoutBtn">Sign out</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <form id="providerForm" class="item">
+          <h2>New Provider</h2>
+          <label>Name</label>
+          <input name="name" required />
+          <label>Protocol</label>
+          <select name="protocol">
+            <option value="openai">OpenAI-compatible</option>
+            <option value="anthropic">Anthropic-compatible</option>
+          </select>
+          <label>Base URL</label>
+          <input name="baseUrl" placeholder="https://api.example.com" required />
+          <label>API Key</label>
+          <input name="apiKey" type="password" required />
+          <div style="margin-top:12px;"><button type="submit">Save provider</button></div>
+        </form>
+
+        <form id="mappingForm" class="item">
+          <h2>New Model Mapping</h2>
+          <label>Alias exposed to clients</label>
+          <input name="alias" placeholder="my-model" required />
+          <label>Provider</label>
+          <select name="providerId" id="providerSelect"></select>
+          <label>Upstream model</label>
+          <input name="upstreamModel" placeholder="gpt-4.1-mini" required />
+          <label><input type="checkbox" name="supportsNativeTools" /> Native tool calling upstream</label>
+          <label><input type="checkbox" name="requiresXmlShim" checked /> Require XML shim</label>
+          <label><input type="checkbox" name="supportsStreaming" checked /> Supports streaming</label>
+          <div style="margin-top:12px;"><button type="submit">Save mapping</button></div>
+        </form>
+      </div>
+    </section>
+
+    <section class="card hidden" id="stateCard">
+      <div class="grid">
+        <div>
+          <h2>Configured Providers</h2>
+          <div id="providers" class="list"></div>
+        </div>
+        <div>
+          <h2>Model Mappings</h2>
+          <div id="mappings" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card hidden" id="logsCard">
+      <h2>Recent Request Logs</h2>
+      <div id="logs" class="list"></div>
+    </section>
+  </div>
+
+  <script>
+    const loginCard = document.getElementById('loginCard');
+    const appCard = document.getElementById('appCard');
+    const stateCard = document.getElementById('stateCard');
+    const logsCard = document.getElementById('logsCard');
+    const loginMessage = document.getElementById('loginMessage');
+    const providerSelect = document.getElementById('providerSelect');
+    const providersEl = document.getElementById('providers');
+    const mappingsEl = document.getElementById('mappings');
+    const logsEl = document.getElementById('logs');
+
+    const setAuthenticated = (value) => {
+      loginCard.classList.toggle('hidden', value);
+      appCard.classList.toggle('hidden', !value);
+      stateCard.classList.toggle('hidden', !value);
+      logsCard.classList.toggle('hidden', !value);
+    };
+
+    const renderBootstrap = (data) => {
+      providerSelect.innerHTML = data.providers.map((provider) =>
+        `<option value="${provider.id}">${provider.name} (${provider.protocol})</option>`
+      ).join('');
+
+      providersEl.innerHTML = data.providers.map((provider) => `
+        <div class="item">
+          <strong>${provider.name}</strong>
+          <div class="meta">${provider.protocol} · ${provider.baseUrl}</div>
+          <div class="meta">Created ${provider.createdAt}</div>
+        </div>
+      `).join('') || '<div class="item">No providers yet.</div>';
+
+      mappingsEl.innerHTML = data.mappings.map((mapping) => `
+        <div class="item">
+          <strong>${mapping.alias}</strong>
+          <div class="meta">Upstream ${mapping.upstreamModel}</div>
+          <div class="meta">native=${mapping.supportsNativeTools} shim=${mapping.requiresXmlShim} stream=${mapping.supportsStreaming}</div>
+        </div>
+      `).join('') || '<div class="item">No mappings yet.</div>';
+
+      logsEl.innerHTML = data.logs.map((log) => `
+        <div class="item">
+          <div><strong>${log.route}</strong> <span class="status">${log.status}</span></div>
+          <div class="meta">model=${log.model} provider=${log.providerName ?? 'n/a'} at ${log.createdAt}</div>
+          ${log.detail ? `<pre>${log.detail}</pre>` : ''}
+        </div>
+      `).join('') || '<div class="item">No logs yet.</div>';
+    };
+
+    const loadBootstrap = async () => {
+      const response = await fetch('/admin/api/bootstrap');
+      if (!response.ok) {
+        setAuthenticated(false);
+        return;
+      }
+      const data = await response.json();
+      renderBootstrap(data);
+      setAuthenticated(true);
+    };
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const password = document.getElementById('password').value;
+      const response = await fetch('/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+
+      if (!response.ok) {
+        loginMessage.textContent = 'Login failed.';
+        return;
+      }
+
+      loginMessage.textContent = '';
+      await loadBootstrap();
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/admin/logout', { method: 'POST' });
+      setAuthenticated(false);
+    });
+
+    document.getElementById('providerForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.target);
+      const payload = Object.fromEntries(form.entries());
+      await fetch('/admin/api/providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      event.target.reset();
+      await loadBootstrap();
+    });
+
+    document.getElementById('mappingForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.target);
+      const payload = Object.fromEntries(form.entries());
+      payload.supportsNativeTools = form.get('supportsNativeTools') === 'on';
+      payload.requiresXmlShim = form.get('requiresXmlShim') === 'on';
+      payload.supportsStreaming = form.get('supportsStreaming') === 'on';
+      await fetch('/admin/api/mappings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      event.target.reset();
+      await loadBootstrap();
+    });
+
+    loadBootstrap();
+  </script>
+</body>
+</html>
