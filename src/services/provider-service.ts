@@ -24,25 +24,11 @@ export class ProviderService {
   constructor(private readonly database: DatabaseService) {}
 
   listProviders(): ProviderRecord[] {
-    return this.database.db
-      .prepare(
-        `SELECT id, name, protocol, base_url as baseUrl, api_key_encrypted as apiKeyEncrypted, created_at as createdAt, updated_at as updatedAt
-         FROM providers ORDER BY created_at DESC`
-      )
-      .all() as ProviderRecord[];
+    return this.database.listProviders();
   }
 
   listMappings(): ModelMappingRecord[] {
-    return this.database.db
-      .prepare(
-        `SELECT id, alias, provider_id as providerId, upstream_model as upstreamModel,
-                supports_native_tools as supportsNativeTools,
-                requires_xml_shim as requiresXmlShim,
-                supports_streaming as supportsStreaming,
-                created_at as createdAt, updated_at as updatedAt
-         FROM model_mappings ORDER BY created_at DESC`
-      )
-      .all() as ModelMappingRecord[];
+    return this.database.listMappings();
   }
 
   createProvider(input: ProviderInput): ProviderRecord {
@@ -57,12 +43,7 @@ export class ProviderService {
       updatedAt: now
     };
 
-    this.database.db
-      .prepare(
-        `INSERT INTO providers (id, name, protocol, base_url, api_key_encrypted, created_at, updated_at)
-         VALUES (@id, @name, @protocol, @baseUrl, @apiKeyEncrypted, @createdAt, @updatedAt)`
-      )
-      .run(record);
+    this.database.insertProvider(record);
 
     return record;
   }
@@ -81,63 +62,13 @@ export class ProviderService {
       updatedAt: now
     };
 
-    this.database.db
-      .prepare(
-        `INSERT INTO model_mappings (
-          id, alias, provider_id, upstream_model, supports_native_tools, requires_xml_shim, supports_streaming, created_at, updated_at
-        ) VALUES (
-          @id, @alias, @providerId, @upstreamModel, @supportsNativeTools, @requiresXmlShim, @supportsStreaming, @createdAt, @updatedAt
-        )`
-      )
-      .run(record);
+    this.database.insertMapping(record);
 
     return record;
   }
 
   resolveModel(alias: string): RuntimeModelConfig | null {
-    const row = this.database.db
-      .prepare(
-        `SELECT
-            m.id as mappingId,
-            m.alias,
-            m.provider_id as providerId,
-            m.upstream_model as upstreamModel,
-            m.supports_native_tools as supportsNativeTools,
-            m.requires_xml_shim as requiresXmlShim,
-            m.supports_streaming as supportsStreaming,
-            m.created_at as mappingCreatedAt,
-            m.updated_at as mappingUpdatedAt,
-            p.id as providerRealId,
-            p.name,
-            p.protocol,
-            p.base_url as baseUrl,
-            p.api_key_encrypted as apiKeyEncrypted,
-            p.created_at as providerCreatedAt,
-            p.updated_at as providerUpdatedAt
-         FROM model_mappings m
-         JOIN providers p ON p.id = m.provider_id
-         WHERE m.alias = ?`
-      )
-      .get(alias) as
-      | {
-          mappingId: string;
-          alias: string;
-          providerId: string;
-          upstreamModel: string;
-          supportsNativeTools: number;
-          requiresXmlShim: number;
-          supportsStreaming: number;
-          mappingCreatedAt: string;
-          mappingUpdatedAt: string;
-          providerRealId: string;
-          name: string;
-          protocol: "anthropic" | "openai";
-          baseUrl: string;
-          apiKeyEncrypted: string;
-          providerCreatedAt: string;
-          providerUpdatedAt: string;
-        }
-      | undefined;
+    const row = this.database.findModelWithProvider(alias);
 
     if (!row) {
       return null;

@@ -53,7 +53,8 @@ const recordLog = (
   database.logRequest(entry);
 };
 
-app.get("/health", (_request, response) => {
+app.get("/health", async (_request, response) => {
+  await database.ready;
   const cutoff = new Date(Date.now() - appConfig.logRetentionDays * 24 * 60 * 60 * 1000).toISOString();
   database.cleanupLogs(cutoff);
   response.json({ ok: true });
@@ -78,7 +79,8 @@ app.post("/admin/logout", (_request, response) => {
   response.json({ ok: true });
 });
 
-app.get("/admin/api/bootstrap", adminOnly, (_request, response) => {
+app.get("/admin/api/bootstrap", adminOnly, async (_request, response) => {
+  await database.ready;
   const providers = providerService.listProviders().map((provider) => ({
     id: provider.id,
     name: provider.name,
@@ -88,12 +90,7 @@ app.get("/admin/api/bootstrap", adminOnly, (_request, response) => {
     updatedAt: provider.updatedAt
   }));
 
-  const logs = database.db
-    .prepare(
-      `SELECT id, route, model, provider_name as providerName, status, detail, created_at as createdAt
-       FROM request_logs ORDER BY created_at DESC LIMIT 50`
-    )
-    .all();
+  const logs = database.listRecentLogs(50);
 
   response.json({
     providers,
@@ -102,7 +99,8 @@ app.get("/admin/api/bootstrap", adminOnly, (_request, response) => {
   });
 });
 
-app.post("/admin/api/providers", adminOnly, (request, response) => {
+app.post("/admin/api/providers", adminOnly, async (request, response) => {
+  await database.ready;
   const created = providerService.createProvider({
     name: String(request.body?.name ?? ""),
     protocol: request.body?.protocol === "anthropic" ? "anthropic" : "openai",
@@ -120,7 +118,8 @@ app.post("/admin/api/providers", adminOnly, (request, response) => {
   });
 });
 
-app.post("/admin/api/mappings", adminOnly, (request, response) => {
+app.post("/admin/api/mappings", adminOnly, async (request, response) => {
+  await database.ready;
   const created = providerService.createMapping({
     alias: String(request.body?.alias ?? ""),
     providerId: String(request.body?.providerId ?? ""),
@@ -138,6 +137,7 @@ const handleProxyRequest = async (
   response: Response,
   protocol: "anthropic" | "openai"
 ): Promise<void> => {
+  await database.ready;
   const normalized = protocol === "anthropic"
     ? decodeAnthropicRequest(request.body as Record<string, unknown>)
     : decodeOpenAiRequest(request.body as Record<string, unknown>);
