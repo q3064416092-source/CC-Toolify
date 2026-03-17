@@ -1,12 +1,12 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 RUN corepack enable && corepack prepare pnpm@10.28.2 --activate && pnpm install --frozen-lockfile
 
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json pnpm-lock.yaml tsconfig.json ./
+COPY package.json pnpm-lock.yaml .npmrc tsconfig.json ./
 COPY src ./src
 RUN corepack enable && corepack prepare pnpm@10.28.2 --activate && pnpm build
 
