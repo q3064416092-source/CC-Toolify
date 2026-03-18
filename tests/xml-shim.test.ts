@@ -27,6 +27,17 @@ describe("xml shim parser", () => {
     expect(consumed.toolCalls[0]?.input).toEqual({ city: "Shanghai" });
   });
 
+  it("keeps natural-language lead-in while extracting the following tool call", () => {
+    const consumed = consumeXmlText(
+      createParserState(),
+      "I will inspect the repository first.\n<ccx_tool><ccx_name>list_files</ccx_name><ccx_arguments>{\"path\":\".\"}</ccx_arguments></ccx_tool>",
+      "private_v1"
+    );
+    expect(consumed.newText).toBe("I will inspect the repository first.\n");
+    expect(consumed.toolCalls).toHaveLength(1);
+    expect(consumed.toolCalls[0]?.name).toBe("list_files");
+  });
+
   it("private_v1 parser keeps backward compatibility with legacy blocks", () => {
     const consumed = consumeXmlText(
       createParserState(),
@@ -80,6 +91,7 @@ describe("xml shim parser", () => {
     const prompt = buildXmlShimPrompt([{ name: "get_weather" }], "private_v1");
     expect(prompt).toContain("<ccx_tool>");
     expect(prompt).not.toContain("<tool_call><name>");
+    expect(prompt).toContain("You may include a short natural-language lead-in before a tool call");
 
     const messages = shapeMessagesForShim([
       {
@@ -104,5 +116,46 @@ describe("xml shim parser", () => {
     expect(messages[0]?.content).toContain("<ccx_result");
     expect(messages[0]?.content).not.toContain("<tool_call>");
     expect(messages[0]?.content).not.toContain("<tool_result");
+  });
+
+  it("accepts Claude Code style direct tool call with parentheses when explicitly enabled", () => {
+    const consumed = consumeXmlText(
+      createParserState(),
+      "Let me inspect.\nRead({\"file_path\":\"/repo/package.json\"})",
+      "private_v1",
+      ["Read"]
+    );
+    expect(consumed.newText).toBe("Let me inspect.\n");
+    expect(consumed.toolCalls).toHaveLength(1);
+    expect(consumed.toolCalls[0]?.name).toBe("Read");
+    expect(consumed.toolCalls[0]?.input).toEqual({ file_path: "/repo/package.json" });
+  });
+
+  it("accepts Claude Code style direct tool call with braces when explicitly enabled", () => {
+    const consumed = consumeXmlText(
+      createParserState(),
+      "Agent{\"description\":\"explore\",\"prompt\":\"scan project\"}",
+      "private_v1",
+      ["Agent"]
+    );
+    expect(consumed.toolCalls).toHaveLength(1);
+    expect(consumed.toolCalls[0]?.name).toBe("Agent");
+    expect(consumed.toolCalls[0]?.input).toEqual({ description: "explore", prompt: "scan project" });
+  });
+
+  it("does not parse Claude Code style direct calls unless the tool is explicitly enabled", () => {
+    const consumed = consumeXmlText(
+      createParserState(),
+      "Read({\"file_path\":\"/repo/package.json\"})",
+      "private_v1"
+    );
+    expect(consumed.toolCalls).toHaveLength(0);
+    expect(finalizeXmlText(consumed.state)).toBe("Read({\"file_path\":\"/repo/package.json\"})");
+  });
+
+  it("renders Claude Code compatibility guidance for cc variant", () => {
+    const prompt = buildXmlShimPrompt([{ name: "Read" }], "private_v1", "claude_code");
+    expect(prompt).toContain("Claude Code compatibility mode is enabled.");
+    expect(prompt).toContain("ToolName({...})");
   });
 });

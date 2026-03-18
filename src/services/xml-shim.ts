@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import {
+  ModelVariant,
   NormalizedMessage,
   ParserState,
   ToolDefinition,
@@ -86,7 +87,8 @@ const parseToolCall = (innerXml: string, dialect: ShimDialect): XmlToolCall | nu
 
 export const buildXmlShimPrompt = (
   tools: ToolDefinition[],
-  style: XmlShimStyle = "legacy"
+  style: XmlShimStyle = "legacy",
+  variant: ModelVariant = "default"
 ): string => {
   const dialect = getShimDialect(style);
   const renderedTools = tools.map((tool) => {
@@ -95,15 +97,29 @@ export const buildXmlShimPrompt = (
   });
 
   const example = renderToolCall(dialect, "tool_name", { key: "value" });
+  const resultExample = renderToolResult(dialect, "tool_call_id", false, "{\"result\":\"value\"}");
   const extraRule = style === "private_v1"
     ? `Never emit ${openTag("tool_call")} or any native tool-calling placeholder. Use only the custom CC-Toolify shim tags shown below.`
     : "Do not emit any alternative custom tag names.";
+  const variantRule = variant === "claude_code"
+    ? [
+        "Claude Code compatibility mode is enabled.",
+        "If the available tools use Claude Code-style names such as Read, Glob, Grep, Bash or Agent, you may emit either the XML shim block or a direct compatibility call like ToolName({...}) or ToolName{...} with a JSON object.",
+        "Only call tools that are listed below. If a Claude Code tool name is not listed, ignore it and do not mention missing tools."
+      ].join("\n")
+    : "";
 
   return [
     "You do not have native tool calling.",
     "When a tool is required, emit exactly one or more XML blocks using this exact format:",
     example,
+    "You may include a short natural-language lead-in before a tool call when it helps the conversation flow.",
+    "If you emit natural language before a tool call, keep it brief and then emit the tool-call block immediately.",
+    "Do not describe fake tool execution, do not narrate internal tooling steps, and do not claim a tool exists unless it is listed below.",
+    "Tool results will be returned to you in this format:",
+    resultExample,
     extraRule,
+    variantRule,
     "Do not use markdown fences around the XML.",
     "Do not invent tools that are not listed.",
     "After tool results arrive, continue the answer normally unless another tool call is needed.",
@@ -183,7 +199,8 @@ const findPartialOpenTagStart = (text: string, dialects: ShimDialect[]): number 
 export const consumeXmlText = (
   state: ParserState,
   incomingText: string,
-  style: XmlShimStyle = "legacy"
+  style: XmlShimStyle = "legacy",
+  directToolNames: string[] = []
 ): { state: ParserState; newText: string; toolCalls: XmlToolCall[] } => {
   const dialects = getParserDialects(style);
   let remaining = state.buffer + incomingText;
@@ -191,16 +208,248 @@ export const consumeXmlText = (
   const toolCalls: XmlToolCall[] = [];
   let nextBuffer = "";
 
+  const sortedDirectToolNames = Array.from(new Set(directToolNames.filter(Boolean))).sort((a, b) => b.length - a.length);
+
+  const isToolBoundary = (value: string | undefined): boolean => !value || !/[A-Za-z0-9_:-]/.test(value);
+
+  const findMatchingBracketEnd = (text: string, startIndex: number, open: string, close: string): number => {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = startIndex; index < text.length; index += 1) {
+      const char = text[index];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === "\"") {
+        inString = !inString;
+        continue;
+      }
+      if (inString) {
+        continue;
+      }
+      if (char === open) {
+        depth += 1;
+        continue;
+      }
+      if (char === close) {
+        depth -= 1;
+        if (depth === 0) {
+          return index;
+        }
+      }
+    }
+
+    return -1;
+  };
+
+  const parseDirectToolCallAt = (
+    text: string,
+    startIndex: number,
+    name: string
+  ): { index: number; endIndex: number; toolCall: XmlToolCall | null; incomplete: boolean } => {
+    let cursor = startIndex + name.length;
+    while (cursor < text.length && /\s/.test(text[cursor] ?? "")) {
+      cursor += 1;
+    }
+
+    const opener = text[cursor];
+    if (!opener) {
+      return {
+        index: startIndex,
+        endIndex: startIndex,
+        toolCall: null,
+        incomplete: true
+      };
+    }
+
+    if (opener === "{") {
+      const end = findMatchingBracketEnd(text, cursor, "{", "}");
+      if (end < 0) {
+        return {
+          index: startIndex,
+          endIndex: startIndex,
+          toolCall: null,
+          incomplete: true
+        };
+      }
+
+      const raw = text.slice(startIndex, end + 1);
+      try {
+        return {
+          index: startIndex,
+          endIndex: end + 1,
+          toolCall: {
+            id: `toolu_${crypto.randomUUID()}`,
+            name,
+            input: JSON.parse(text.slice(cursor, end + 1)) as Record<string, unknown>,
+            raw
+          },
+          incomplete: false
+        };
+      } catch {
+        return {
+          index: startIndex,
+          endIndex: end + 1,
+          toolCall: null,
+          incomplete: false
+        };
+      }
+    }
+
+    if (opener !== "(") {
+      return {
+        index: startIndex,
+        endIndex: startIndex,
+        toolCall: null,
+        incomplete: false
+      };
+    }
+
+    const end = findMatchingBracketEnd(text, cursor, "(", ")");
+    if (end < 0) {
+      return {
+        index: startIndex,
+        endIndex: startIndex,
+        toolCall: null,
+        incomplete: true
+      };
+    }
+
+    const raw = text.slice(startIndex, end + 1);
+    try {
+      return {
+        index: startIndex,
+        endIndex: end + 1,
+        toolCall: {
+          id: `toolu_${crypto.randomUUID()}`,
+          name,
+          input: JSON.parse(text.slice(cursor + 1, end).trim()) as Record<string, unknown>,
+          raw
+        },
+        incomplete: false
+      };
+    } catch {
+      return {
+        index: startIndex,
+        endIndex: end + 1,
+        toolCall: null,
+        incomplete: false
+      };
+    }
+  };
+
+  const findNextDirectToolCall = (
+    text: string
+  ): { index: number; endIndex: number; toolCall: XmlToolCall | null; incomplete: boolean } | null => {
+    let best:
+      | { index: number; endIndex: number; toolCall: XmlToolCall | null; incomplete: boolean }
+      | null = null;
+
+    for (const name of sortedDirectToolNames) {
+      let searchFrom = 0;
+      while (searchFrom < text.length) {
+        const index = text.indexOf(name, searchFrom);
+        if (index < 0) {
+          break;
+        }
+
+        if (!isToolBoundary(text[index - 1])) {
+          searchFrom = index + name.length;
+          continue;
+        }
+
+        let cursor = index + name.length;
+        while (cursor < text.length && /\s/.test(text[cursor] ?? "")) {
+          cursor += 1;
+        }
+
+        const opener = text[cursor];
+        if (opener !== "(" && opener !== "{") {
+          searchFrom = index + name.length;
+          continue;
+        }
+
+        const parsed = parseDirectToolCallAt(text, index, name);
+        if (!best || parsed.index < best.index) {
+          best = parsed;
+        }
+        break;
+      }
+    }
+
+    return best;
+  };
+
+  const findPartialDirectCallStart = (text: string): number => {
+    if (sortedDirectToolNames.length === 0) {
+      return -1;
+    }
+
+    const maxToolNameLength = Math.max(...sortedDirectToolNames.map((name) => name.length));
+    const searchStart = Math.max(0, text.length - maxToolNameLength);
+
+    for (let index = searchStart; index < text.length; index += 1) {
+      const candidate = text.slice(index);
+      const before = text[index - 1];
+      if (!isToolBoundary(before)) {
+        continue;
+      }
+
+      for (const name of sortedDirectToolNames) {
+        if (name.startsWith(candidate)) {
+          return index;
+        }
+      }
+    }
+
+    return -1;
+  };
+
   while (remaining) {
     const nextOpen = findNextOpenTag(remaining, dialects);
-    if (!nextOpen) {
+    const nextDirect = findNextDirectToolCall(remaining);
+
+    if (!nextOpen && !nextDirect) {
       const partialOpenIndex = findPartialOpenTagStart(remaining, dialects);
-      if (partialOpenIndex >= 0) {
-        plainText += remaining.slice(0, partialOpenIndex);
-        nextBuffer = remaining.slice(partialOpenIndex);
+      const partialDirectIndex = findPartialDirectCallStart(remaining);
+      const partialIndex = [partialOpenIndex, partialDirectIndex]
+        .filter((value) => value >= 0)
+        .sort((a, b) => a - b)[0] ?? -1;
+      if (partialIndex >= 0) {
+        plainText += remaining.slice(0, partialIndex);
+        nextBuffer = remaining.slice(partialIndex);
       } else {
         plainText += remaining;
       }
+      break;
+    }
+
+    if (nextDirect && (!nextOpen || nextDirect.index < nextOpen.index)) {
+      plainText += remaining.slice(0, nextDirect.index);
+
+      if (nextDirect.incomplete) {
+        nextBuffer = remaining.slice(nextDirect.index);
+        break;
+      }
+
+      if (nextDirect.toolCall) {
+        toolCalls.push(nextDirect.toolCall);
+      } else {
+        plainText += remaining.slice(nextDirect.index, nextDirect.endIndex);
+      }
+
+      remaining = remaining.slice(nextDirect.endIndex);
+      continue;
+    }
+
+    if (!nextOpen) {
       break;
     }
 

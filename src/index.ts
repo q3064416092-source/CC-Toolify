@@ -61,6 +61,13 @@ const toBootstrapMapping = (
   providerName: providers.find((provider) => provider.id === mapping.providerId)?.name ?? null
 });
 
+const toModelCard = (id: string, created: number) => ({
+  id,
+  object: "model",
+  created,
+  owned_by: "cc-toolify"
+});
+
 const createRequestLog = (
   requestId: string,
   route: string,
@@ -120,6 +127,21 @@ app.get("/health", async (_request, response) => {
   const cutoff = new Date(Date.now() - appConfig.logRetentionDays * 24 * 60 * 60 * 1000).toISOString();
   database.cleanupLogs(cutoff);
   response.json({ ok: true });
+});
+
+app.get("/v1/models", async (_request, response) => {
+  await database.ready;
+  const mappings = providerService.listMappings();
+  const created = Math.floor(Date.now() / 1000);
+  const data = mappings.flatMap((mapping) => ([
+    toModelCard(mapping.alias, created),
+    toModelCard(`${mapping.alias}${ProviderService.CLAUDE_CODE_SUFFIX}`, created)
+  ]));
+
+  response.json({
+    object: "list",
+    data
+  });
 });
 
 app.get("/admin", (_request, response) => {
@@ -350,7 +372,7 @@ const handleProxyRequest = async (
         requestId,
         request.path,
         protocol,
-        normalized.model,
+        runtime.resolvedModel,
         runtime.provider.name,
         runtime.mapping.upstreamModel
       )

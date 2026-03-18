@@ -1,5 +1,6 @@
 export type ExternalProtocol = "anthropic" | "openai";
 export type XmlShimStyle = "legacy" | "private_v1";
+export type ModelVariant = "default" | "claude_code";
 
 export type Role = "system" | "user" | "assistant" | "tool";
 
@@ -75,6 +76,8 @@ export interface ModelMappingRecord {
 export interface RuntimeModelConfig {
   provider: Omit<ProviderRecord, "apiKeyEncrypted"> & { apiKey: string };
   mapping: ModelMappingRecord;
+  resolvedModel: string;
+  variant: ModelVariant;
 }
 
 export interface XmlToolCall {

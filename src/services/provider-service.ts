@@ -31,6 +31,8 @@ export class ProviderServiceError extends Error {
 export class ProviderService {
   constructor(private readonly database: DatabaseService) {}
 
+  static readonly CLAUDE_CODE_SUFFIX = "-cc";
+
   listProviders(): ProviderRecord[] {
     return this.database.listProviders();
   }
@@ -152,7 +154,12 @@ export class ProviderService {
   }
 
   resolveModel(alias: string): RuntimeModelConfig | null {
-    const row = this.database.findModelWithProvider(alias.trim());
+    const normalizedAlias = alias.trim();
+    const isClaudeCodeVariant = normalizedAlias.endsWith(ProviderService.CLAUDE_CODE_SUFFIX);
+    const baseAlias = isClaudeCodeVariant
+      ? normalizedAlias.slice(0, -ProviderService.CLAUDE_CODE_SUFFIX.length)
+      : normalizedAlias;
+    const row = this.database.findModelWithProvider(baseAlias);
     if (!row) {
       return null;
     }
@@ -178,7 +185,9 @@ export class ProviderService {
         apiKey: decryptSecret(row.apiKeyEncrypted, appConfig.appSecret),
         createdAt: row.providerCreatedAt,
         updatedAt: row.providerUpdatedAt
-      }
+      },
+      resolvedModel: normalizedAlias,
+      variant: isClaudeCodeVariant ? "claude_code" : "default"
     };
   }
 
@@ -227,6 +236,10 @@ export class ProviderService {
 
     if (!/^[A-Za-z0-9._:-]+$/.test(alias)) {
       throw new ProviderServiceError("Model alias only supports letters, numbers, dot, underscore, colon and hyphen", 400);
+    }
+
+    if (alias.endsWith(ProviderService.CLAUDE_CODE_SUFFIX)) {
+      throw new ProviderServiceError(`Model alias cannot end with ${ProviderService.CLAUDE_CODE_SUFFIX}; this suffix is reserved for Claude Code compatibility variants`, 400);
     }
 
     if (!providerId) {

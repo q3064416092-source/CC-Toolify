@@ -95,7 +95,12 @@ export class OrchestratorService {
         }
 
         for await (const chunk of upstream) {
-          const consumed = consumeXmlText(parser, chunk, runtime.provider.shimStyle);
+          const consumed = consumeXmlText(
+            parser,
+            chunk,
+            runtime.provider.shimStyle,
+            runtime.variant === "claude_code" ? request.tools.map((tool) => tool.name) : []
+          );
           parser = consumed.state;
 
           if (consumed.newText) {
@@ -130,7 +135,7 @@ export class OrchestratorService {
   }
 
   private buildShimPayload(runtime: RuntimeModelConfig, request: NormalizedRequest): Record<string, unknown> {
-    const systemPrompt = [request.systemPrompt, buildXmlShimPrompt(request.tools, runtime.provider.shimStyle)]
+    const systemPrompt = [request.systemPrompt, buildXmlShimPrompt(request.tools, runtime.provider.shimStyle, runtime.variant)]
       .filter(Boolean)
       .join("\n\n");
     const messages = shapeMessagesForShim(request.messages, runtime.provider.shimStyle);
