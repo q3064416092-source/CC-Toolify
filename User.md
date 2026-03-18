@@ -16,3 +16,53 @@
   - 就算在webui填写正确配置后，但我用api访问服务还是一直超时，日志无输出，请修复
   - webui请支持中文，并且支持多上游、多模型管理
 2. 完善项目逻辑、增加项目稳定性，减少bug出现
+
+---
+
+已知问题：
+1. 目前上下游能正常调用，但核心功能工具调用处于瘫痪状态
+以下是我测试的两个模型我要求他们调用工具返回的结果：
+模型1
+```
+I need to test if the MCP tools are working properly. Let me use the sequential thinking tool to plan this test.
+
+<tool_call>
+<name>mcp__sequentialThinking__sequentialthinking</name>
+<arguments>{
+  "thought": "I need to systematically test if the MCP tools are functioning. First, I should check each available tool with a simple test. Let's start with the sequential thinking tool itself, then try fetching content from a known website, and finally test the web search tool.",
+  "nextThoughtNeeded": true,
+  "thoughtNumber": 1,
+  "totalThoughts": 5,
+  "isRevision": false,
+  "needsMoreThoughts": false
+}</arguments>
+</tool_call>
+```
+模型2
+```
+Tool mcp__sequentialThinking__sequentialthinking does not exists.Tool builtin_web_search does not exists.这两个工具都返回"does not exists"，说明这些工具在当前环境中不可用。让我继续测试CherryFetch系列的工具，看看它们是否可用。
+Tool mcp__CherryFetch__fetchHtml does not exists.Tool mcp__CherryFetch__fetchMarkdown does not exists.Tool mcp__CherryFetch__fetchTxt does not exists.Tool mcp__CherryFetch__fetchJson does not exists.所有列出的MCP工具都返回"does not exists"，这意味着在当前环境中这些工具实际上不可用。虽然系统提示中列出了这些工具，但实际调用时它们并不存在。
+
+我需要向用户报告这个测试结果。## MCP工具测试结果
+
+**所有工具均不可用** ❌
+
+| 工具名称 | 状态 |
+|---------|------|
+| mcp__sequentialThinking__sequentialthinking | 不存在 |
+| builtin_web_search | 不存在 |
+| mcp__CherryFetch__fetchHtml | 不存在 |
+| mcp__CherryFetch__fetchMarkdown | 不存在 |
+| mcp__CherryFetch__fetchTxt | 不存在 |
+| mcp__CherryFetch__fetchJson | 不存在 |
+
+**结论**：虽然系统提示中列出了这些MCP工具，但实际调用时均返回"does not exists"错误。可能原因：
+1. 工具未正确注册到当前环境
+2. MCP服务器未启动或连接失败
+3. 工具名称配置有误
+
+**建议**：检查MCP服务器配置和连接状态。
+```
+因此我判断项目的核心功能处于瘫痪状态，请尽快修复到完善可用
+
+2. 对于各种模型的思维链解析没有完善的支持，例如Qwen的思考模型可以被正常解析思维链，但Deepseek模型的思维链被忽略

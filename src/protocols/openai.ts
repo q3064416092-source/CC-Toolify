@@ -8,8 +8,16 @@
 } from "../types.js";
 
 interface OpenAiEvent {
-  choices?: Array<{ delta?: { content?: string } }>;
+  choices?: Array<{
+    delta?: {
+      content?: string;
+      reasoning?: unknown;
+      reasoning_content?: unknown;
+    };
+  }>;
 }
+
+type OpenAiDelta = NonNullable<OpenAiEvent["choices"]>[number]["delta"];
 
 const normalizeContent = (content: unknown): NormalizedContentPart[] => {
   if (typeof content === "string") {
@@ -32,6 +40,80 @@ const normalizeContent = (content: unknown): NormalizedContentPart[] => {
 
     return [];
   });
+};
+
+const parseToolCallInput = (value: unknown): Record<string, unknown> => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+const normalizeAssistantToolCalls = (toolCalls: unknown): NormalizedContentPart[] => {
+  if (!Array.isArray(toolCalls)) {
+    return [];
+  }
+
+  return toolCalls.flatMap((toolCall): NormalizedContentPart[] => {
+    if (!toolCall || typeof toolCall !== "object") {
+      return [];
+    }
+
+    const typed = toolCall as Record<string, unknown>;
+    const fn = (typed.function ?? {}) as Record<string, unknown>;
+    const name = typeof fn.name === "string" ? fn.name : "";
+    const id = typeof typed.id === "string" ? typed.id : "";
+    if (!name || !id) {
+      return [];
+    }
+
+    return [
+      {
+        type: "tool_use",
+        id,
+        name,
+        input: parseToolCallInput(fn.arguments)
+      }
+    ];
+  });
+};
+
+const extractReasoningText = (delta: OpenAiDelta | undefined): string | null => {
+  if (!delta) {
+    return null;
+  }
+
+  if (typeof delta.reasoning_content === "string" && delta.reasoning_content) {
+    return delta.reasoning_content;
+  }
+
+  if (typeof delta.reasoning === "string" && delta.reasoning) {
+    return delta.reasoning;
+  }
+
+  if (delta.reasoning && typeof delta.reasoning === "object") {
+    const typed = delta.reasoning as Record<string, unknown>;
+    if (typeof typed.text === "string" && typed.text) {
+      return typed.text;
+    }
+    if (typeof typed.content === "string" && typed.content) {
+      return typed.content;
+    }
+  }
+
+  return null;
 };
 
 export const decodeOpenAiRequest = (body: Record<string, unknown>): NormalizedRequest => {
@@ -76,9 +158,14 @@ export const decodeOpenAiRequest = (body: Record<string, unknown>): NormalizedRe
           } satisfies NormalizedMessage;
         }
 
+        const content = normalizeContent(typed.content);
+        if (typed.role === "assistant") {
+          content.push(...normalizeAssistantToolCalls(typed.tool_calls));
+        }
+
         return {
           role: String(typed.role ?? "user") as NormalizedMessage["role"],
-          content: normalizeContent(typed.content)
+          content
         };
       })
   };
@@ -132,16 +219,39 @@ export const encodeOpenAiRequest = (request: NormalizedRequest): Record<string, 
 export async function* normalizeFromOpenAiStream(
   eventStream: AsyncGenerator<string>
 ): AsyncGenerator<string> {
+  let reasoningOpen = false;
+
   for await (const raw of eventStream) {
     if (raw === "[DONE]") {
+      if (reasoningOpen) {
+        yield "</think>\n\n";
+      }
       return;
     }
 
     const parsed = JSON.parse(raw) as OpenAiEvent;
-    const text = parsed.choices?.[0]?.delta?.content;
+    const delta = parsed.choices?.[0]?.delta;
+    const reasoning = extractReasoningText(delta);
+    if (reasoning) {
+      if (!reasoningOpen) {
+        yield "<think>\n";
+        reasoningOpen = true;
+      }
+      yield reasoning;
+    }
+
+    const text = delta?.content;
     if (text) {
+      if (reasoningOpen) {
+        yield "\n</think>\n\n";
+        reasoningOpen = false;
+      }
       yield text;
     }
+  }
+
+  if (reasoningOpen) {
+    yield "</think>\n\n";
   }
 }
 

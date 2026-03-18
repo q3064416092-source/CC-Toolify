@@ -37,7 +37,7 @@ export class OrchestratorService {
   }
 
   async runStreaming(runtime: RuntimeModelConfig, request: NormalizedRequest): Promise<StreamRunResult> {
-    const shouldShim = runtime.mapping.requiresXmlShim === 1 && request.tools.length > 0;
+    const shouldShim = request.tools.length > 0;
     const payload = shouldShim
       ? this.buildShimPayload(runtime, request)
       : runtime.provider.protocol === "anthropic"

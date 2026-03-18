@@ -195,8 +195,8 @@ app.post("/admin/api/mappings", adminOnly, async (request, response) => {
       alias: String(request.body?.alias ?? ""),
       providerId: String(request.body?.providerId ?? ""),
       upstreamModel: String(request.body?.upstreamModel ?? ""),
-      supportsNativeTools: Boolean(request.body?.supportsNativeTools),
-      requiresXmlShim: Boolean(request.body?.requiresXmlShim),
+      supportsNativeTools: false,
+      requiresXmlShim: true,
       supportsStreaming: Boolean(request.body?.supportsStreaming)
     });
 
@@ -211,8 +211,8 @@ app.put("/admin/api/mappings/:mappingId", adminOnly, async (request, response) =
       alias: String(request.body?.alias ?? ""),
       providerId: String(request.body?.providerId ?? ""),
       upstreamModel: String(request.body?.upstreamModel ?? ""),
-      supportsNativeTools: Boolean(request.body?.supportsNativeTools),
-      requiresXmlShim: Boolean(request.body?.requiresXmlShim),
+      supportsNativeTools: false,
+      requiresXmlShim: true,
       supportsStreaming: Boolean(request.body?.supportsStreaming)
     });
 

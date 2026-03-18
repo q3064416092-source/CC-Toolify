@@ -245,8 +245,8 @@ export class ProviderService {
       alias,
       providerId,
       upstreamModel,
-      supportsNativeTools: Boolean(input.supportsNativeTools),
-      requiresXmlShim: Boolean(input.requiresXmlShim),
+      supportsNativeTools: false,
+      requiresXmlShim: true,
       supportsStreaming: Boolean(input.supportsStreaming)
     };
   }

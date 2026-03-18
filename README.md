@@ -6,7 +6,7 @@ Single-user proxy that adapts non-native-tool-calling models for Claude Code CLI
 
 - Anthropic-compatible `/v1/messages` endpoint for Claude Code
 - OpenAI-compatible `/v1/chat/completions` endpoint
-- Built-in XML tool-call shim for upstream models without native tool support
+- Built-in XML tool-call shim for upstream models that do not support native tool calling
 - Upstream requests forced to stream mode, with downstream stream and non-stream compatibility
 - Single-file SQLite storage via `sql.js` for provider/model config and recent request logs
 - Minimal admin UI for provider setup and health checks
@@ -49,6 +49,7 @@ The compose setup mounts `./data` into `/app/data` so the single SQLite file and
 ## Notes
 
 - Upstream APIs are expected to be OpenAI-compatible or Anthropic-compatible.
+- This project is designed around upstream models that do not support native tool calling. Tool-enabled requests are always bridged through the XML shim.
 - Non-stream downstream requests are internally upgraded to upstream streaming and buffered before returning.
 - The XML shim is intentionally opinionated in v1 to maximize parser stability.
 - Persistence uses `sql.js` to write a single SQLite database file at `/app/data/cc-toolify.sqlite`, which avoids native Node bindings inside Docker.

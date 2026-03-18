@@ -6,7 +6,8 @@ import {
   XmlToolCall
 } from "../types.js";
 
-const TOOL_PATTERN = /<tool_call>([\s\S]*?)<\/tool_call>/g;
+const OPEN_TOOL_TAG = "<tool_call>";
+const CLOSE_TOOL_TAG = "</tool_call>";
 
 const extractTag = (body: string, tag: string): string | null => {
   const match = body.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
@@ -80,37 +81,56 @@ export const createParserState = (): ParserState => ({
   visibleText: ""
 });
 
+const findPartialOpenTagStart = (text: string): number => {
+  const searchStart = Math.max(0, text.length - OPEN_TOOL_TAG.length + 1);
+  for (let index = searchStart; index < text.length; index += 1) {
+    if (OPEN_TOOL_TAG.startsWith(text.slice(index))) {
+      return index;
+    }
+  }
+
+  return -1;
+};
+
 export const consumeXmlText = (
   state: ParserState,
   incomingText: string
 ): { state: ParserState; newText: string; toolCalls: XmlToolCall[] } => {
-  const merged = state.buffer + incomingText;
+  let remaining = state.buffer + incomingText;
   let plainText = "";
   const toolCalls: XmlToolCall[] = [];
-  let cursor = 0;
+  let nextBuffer = "";
 
-  TOOL_PATTERN.lastIndex = 0;
-  let match = TOOL_PATTERN.exec(merged);
-  while (match) {
-    plainText += merged.slice(cursor, match.index);
-    const parsed = parseToolCall(match[1]);
+  while (remaining) {
+    const openIndex = remaining.indexOf(OPEN_TOOL_TAG);
+    if (openIndex < 0) {
+      const partialOpenIndex = findPartialOpenTagStart(remaining);
+      if (partialOpenIndex >= 0) {
+        plainText += remaining.slice(0, partialOpenIndex);
+        nextBuffer = remaining.slice(partialOpenIndex);
+      } else {
+        plainText += remaining;
+      }
+      break;
+    }
+
+    plainText += remaining.slice(0, openIndex);
+
+    const closeIndex = remaining.indexOf(CLOSE_TOOL_TAG, openIndex + OPEN_TOOL_TAG.length);
+    if (closeIndex < 0) {
+      nextBuffer = remaining.slice(openIndex);
+      break;
+    }
+
+    const innerXml = remaining.slice(openIndex + OPEN_TOOL_TAG.length, closeIndex);
+    const parsed = parseToolCall(innerXml);
     if (parsed) {
       toolCalls.push(parsed);
     } else {
-      plainText += match[0];
+      plainText += remaining.slice(openIndex, closeIndex + CLOSE_TOOL_TAG.length);
     }
-    cursor = match.index + match[0].length;
-    match = TOOL_PATTERN.exec(merged);
-  }
 
-  const trailing = merged.slice(cursor);
-  const openIndex = trailing.lastIndexOf("<tool_call>");
-  let nextBuffer = "";
-  if (openIndex >= 0 && trailing.indexOf("</tool_call>", openIndex) === -1) {
-    plainText += trailing.slice(0, openIndex);
-    nextBuffer = trailing.slice(openIndex);
-  } else {
-    plainText += trailing;
+    remaining = remaining.slice(closeIndex + CLOSE_TOOL_TAG.length);
   }
 
   const nextVisible = state.visibleText + plainText;

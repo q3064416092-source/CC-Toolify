@@ -3,425 +3,216 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CC-Toolify 管理台</title>
+  <title>CC-Toolify 控制台</title>
   <style>
-    :root {
-      --bg: #f5ecdf;
-      --panel: rgba(255, 250, 243, 0.92);
-      --ink: #1f1815;
-      --muted: #6b5d55;
-      --line: rgba(40, 24, 18, 0.12);
-      --accent: #b14d2d;
-      --accent-soft: #edd6c8;
-      --danger: #a93123;
-      --ok: #1e7b57;
-      --warn: #9a6112;
-      --shadow: 0 18px 60px rgba(64, 40, 18, 0.12);
+    :root{
+      --bg:#eef4f7;--panel:rgba(255,255,255,.9);--card:#fff;--ink:#102331;--muted:#607887;--line:rgba(16,35,49,.1);
+      --primary:#0f766e;--primary-2:#1d4ed8;--soft:#def5ef;--danger:#c2410c;--danger-bg:#fff1eb;--ok:#0f766e;--ok-bg:#e7faf6;
+      --warn:#a16207;--warn-bg:#fff7db;--radius:22px;--radius-sm:12px;--shadow:0 18px 54px rgba(16,35,49,.08)
     }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      color: var(--ink);
-      font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
-      background:
-        radial-gradient(circle at top left, rgba(177, 77, 45, 0.18), transparent 30%),
-        radial-gradient(circle at top right, rgba(30, 123, 87, 0.12), transparent 24%),
-        linear-gradient(180deg, #faf5ed 0%, #efe1ce 100%);
-      min-height: 100vh;
-    }
-
-    .shell {
-      width: min(1280px, calc(100vw - 24px));
-      margin: 18px auto 32px;
-      display: grid;
-      gap: 18px;
-    }
-
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      box-shadow: var(--shadow);
-      padding: 22px;
-      backdrop-filter: blur(10px);
-    }
-
-    .hero {
-      display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      align-items: end;
-      flex-wrap: wrap;
-    }
-
-    h1, h2, h3, p {
-      margin: 0;
-    }
-
-    h1 {
-      font-size: clamp(34px, 5vw, 54px);
-      line-height: 0.95;
-      margin-bottom: 10px;
-    }
-
-    h2 {
-      font-size: 24px;
-      margin-bottom: 8px;
-    }
-
-    p.subtle {
-      color: var(--muted);
-      line-height: 1.7;
-      max-width: 72ch;
-    }
-
-    .stats {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .stat {
-      background: rgba(255, 255, 255, 0.58);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 14px;
-    }
-
-    .statLabel {
-      color: var(--muted);
-      font-size: 13px;
-      margin-bottom: 10px;
-    }
-
-    .statValue {
-      font-size: 28px;
-      line-height: 1;
-    }
-
-    .columns {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: 1.05fr 1.05fr 0.9fr;
-      align-items: start;
-    }
-
-    .item {
-      background: rgba(255, 255, 255, 0.66);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 14px;
-    }
-
-    .item + .item {
-      margin-top: 10px;
-    }
-
-    .list {
-      max-height: 620px;
-      overflow: auto;
-      padding-right: 2px;
-    }
-
-    .itemHeader {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: start;
-      margin-bottom: 8px;
-    }
-
-    .itemMeta {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-      word-break: break-word;
-    }
-
-    .form {
-      display: grid;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-
-    .grid2 {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .full {
-      grid-column: 1 / -1;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    input, select, button {
-      width: 100%;
-      font: inherit;
-      padding: 12px 14px;
-      border-radius: 16px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.85);
-      color: var(--ink);
-    }
-
-    button {
-      cursor: pointer;
-      border: none;
-      background: var(--accent);
-      color: #fff;
-      transition: transform 0.16s ease, opacity 0.16s ease;
-    }
-
-    button:hover {
-      transform: translateY(-1px);
-    }
-
-    button.secondary {
-      background: var(--accent-soft);
-      color: var(--ink);
-    }
-
-    button.ghost {
-      background: transparent;
-      color: var(--ink);
-      border: 1px solid var(--line);
-    }
-
-    button.danger {
-      background: var(--danger);
-    }
-
-    .buttonRow {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .buttonRow > * {
-      flex: 1 1 120px;
-    }
-
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(177, 77, 45, 0.1);
-      color: #8d3d23;
-      font-size: 12px;
-    }
-
-    .message {
-      min-height: 22px;
-      font-size: 14px;
-      color: var(--muted);
-      margin: 0 0 12px;
-    }
-
-    .message.ok { color: var(--ok); }
-    .message.error { color: var(--danger); }
-
-    .status-ok { color: var(--ok); }
-    .status-error { color: var(--danger); }
-    .status-started { color: var(--warn); }
-
-    .hidden { display: none; }
-
-    pre {
-      margin: 8px 0 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.55;
-    }
-
-    @media (max-width: 1080px) {
-      .columns {
-        grid-template-columns: 1fr;
-      }
-
-      .stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 720px) {
-      .grid2,
-      .stats {
-        grid-template-columns: 1fr;
-      }
-
-      .card {
-        padding: 18px;
-      }
-    }
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+      background:radial-gradient(circle at top left,rgba(15,118,110,.16),transparent 28%),radial-gradient(circle at top right,rgba(29,78,216,.12),transparent 24%),linear-gradient(180deg,#f9fbfc 0%,var(--bg) 100%)}
+    .hidden{display:none!important}.shell{width:min(1260px,calc(100vw - 24px));margin:0 auto;padding:16px 0 36px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(14px)}
+    .hero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr);gap:16px;padding:24px;margin-bottom:16px}
+    .eyebrow{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;background:rgba(16,35,49,.06);color:var(--muted);font-size:12px;margin-bottom:14px}
+    .eyebrow strong{color:var(--primary)}h1,h2,h3,p{margin:0}.hero h1{font-size:clamp(34px,5vw,56px);line-height:.96;letter-spacing:-.04em;max-width:10ch;margin-bottom:12px}
+    .subtle{color:var(--muted);line-height:1.72}.heroAside{display:grid;gap:12px;align-content:space-between}.note{padding:18px;border-radius:18px;background:linear-gradient(135deg,rgba(15,118,110,.1),rgba(29,78,216,.08));border:1px solid rgba(15,118,110,.12)}
+    .actions,.formActions,.itemActions,.filters,.tabs{display:flex;gap:10px;flex-wrap:wrap}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+    .stat{padding:18px;border-radius:18px;background:rgba(255,255,255,.78);border:1px solid var(--line);box-shadow:0 8px 24px rgba(16,35,49,.04)}
+    .statLabel{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}.statValue{font-size:32px;font-weight:700;line-height:1}.statHint{font-size:13px;color:var(--muted);margin-top:10px}
+    .tabs{margin-bottom:16px}.tabBtn,.filterBtn,.btn{font:inherit;border-radius:999px;cursor:pointer;transition:all .16s ease}
+    .tabBtn,.filterBtn{padding:11px 16px;border:1px solid rgba(16,35,49,.1);background:rgba(255,255,255,.76);color:var(--muted);font-weight:700}
+    .tabBtn.active,.filterBtn.active{background:var(--ink);border-color:var(--ink);color:#fff}.tabPane{display:none}.tabPane.active{display:block;animation:fade .22s ease}
+    @keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+    .grid{display:grid;grid-template-columns:minmax(320px,.95fr) minmax(0,1.05fr);gap:16px}.panel{padding:22px}.panelHead{display:flex;justify-content:space-between;gap:12px;align-items:start;margin-bottom:16px}
+    .panelHead h2{font-size:24px;margin-bottom:6px;letter-spacing:-.02em}.pill{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:var(--soft);color:var(--primary);font-size:12px;font-weight:700;white-space:nowrap}
+    .message{min-height:20px;font-size:14px;color:var(--muted);margin:0 0 14px}.message.ok{color:var(--ok)}.message.error{color:var(--danger)}
+    .formCard{padding:18px;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(247,251,252,.96));border:1px solid var(--line)}
+    .formGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.field{display:grid;gap:7px}.field.full{grid-column:1 / -1}
+    label{font-size:13px;color:var(--muted);font-weight:700}.hint{font-size:12px;color:var(--muted);line-height:1.55}
+    input,select{width:100%;font:inherit;padding:12px 14px;border-radius:14px;border:1px solid rgba(16,35,49,.12);background:#fff;color:var(--ink)}
+    input:focus,select:focus{outline:none;border-color:rgba(15,118,110,.42);box-shadow:0 0 0 4px rgba(15,118,110,.1)}
+    .switch{display:flex;gap:10px;align-items:center;padding:12px 14px;border:1px dashed rgba(16,35,49,.12);border-radius:14px;background:rgba(255,255,255,.78)}.switch input{width:16px;height:16px;accent-color:var(--primary)}
+    .btn{padding:12px 18px;border:none}.btn:hover,.tabBtn:hover,.filterBtn:hover{transform:translateY(-1px)}.btnPrimary{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff}.btnSecondary{background:#fff;border:1px solid rgba(16,35,49,.1);color:var(--ink)}
+    .btnGhost{background:transparent;border:1px solid rgba(16,35,49,.12);color:var(--ink)}.btnDanger{background:var(--danger-bg);border:1px solid rgba(194,65,12,.12);color:var(--danger)}.btnSlim{padding:9px 14px;font-size:13px;font-weight:700}
+    .list{display:grid;gap:12px;max-height:820px;overflow:auto;padding-right:2px}.item{padding:18px;border-radius:18px;background:rgba(255,255,255,.82);border:1px solid var(--line);box-shadow:0 8px 24px rgba(16,35,49,.04)}
+    .itemTop{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:10px}.itemTitle{font-size:18px;letter-spacing:-.02em;margin-bottom:6px}.meta{font-size:13px;color:var(--muted);line-height:1.7;word-break:break-word}.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .badge{display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;font-size:12px;font-weight:700}.bPrimary{background:var(--soft);color:var(--primary)}.bSlate{background:rgba(16,35,49,.08);color:var(--muted)}
+    .bOk{background:var(--ok-bg);color:var(--ok)}.bErr{background:var(--danger-bg);color:var(--danger)}.bWarn{background:var(--warn-bg);color:var(--warn)}
+    .empty{padding:22px;border-radius:18px;border:1px dashed rgba(16,35,49,.14);background:rgba(255,255,255,.56);color:var(--muted);line-height:1.7}
+    .logDetail{margin-top:12px;padding:12px 14px;border-radius:14px;background:#0f1720;color:#d2e4f2;font-size:12px;line-height:1.65;white-space:pre-wrap;word-break:break-word;font-family:Consolas,"Cascadia Code",monospace}
+    .loginWrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.loginCard{width:min(440px,100%);padding:28px}.loginCard h1{font-size:clamp(34px,6vw,46px);line-height:.96;letter-spacing:-.04em;margin-bottom:12px}.loginForm{display:grid;gap:14px}
+    @media (max-width:1100px){.hero,.grid{grid-template-columns:1fr}}
+    @media (max-width:780px){.shell{width:min(100vw - 18px,100%);padding-top:10px}.stats,.formGrid{grid-template-columns:1fr}.hero,.panel,.loginCard{padding:20px}.heroAside,.panelHead,.itemTop{display:flex;flex-direction:column;align-items:stretch}}
   </style>
 </head>
 <body>
-  <div class="shell">
-    <section class="card" id="loginCard">
-      <h1>CC-Toolify</h1>
-      <p class="subtle">中文管理台。这里管理上游服务、模型映射、测试连通性并查看最近请求日志。</p>
-      <div class="form" style="margin-top:18px;">
-        <div>
+  <div id="loginView" class="loginWrap">
+    <section class="card loginCard">
+      <div class="eyebrow"><strong>CC-Toolify</strong> XML Shim 控制台</div>
+      <h1>让不支持工具调用的上游也能稳定干活</h1>
+      <p class="subtle" style="margin-bottom:20px">登录后可管理上游、维护映射、验证连通性，并用请求日志排查工具调用失败、超时和模型路由问题。</p>
+      <div id="loginMessage" class="message"></div>
+      <div class="loginForm">
+        <div class="field">
           <label for="password">管理员密码</label>
-          <input id="password" type="password" autocomplete="current-password" />
+          <input id="password" type="password" autocomplete="current-password" placeholder="请输入控制台密码" />
         </div>
-        <div>
-          <button id="loginBtn">登录</button>
-        </div>
-      </div>
-      <p id="loginMessage" class="message"></p>
-    </section>
-
-    <section class="card hidden" id="appCard">
-      <div class="hero">
-        <div>
-          <div class="chip">多上游 / 多模型 / 请求日志</div>
-          <h1>让代理状态看得见</h1>
-          <p class="subtle">请求进入即记日志，完成后更新状态和耗时。你可以直接在这里维护多个上游和多个模型映射，并对映射做真实调用测试。</p>
-        </div>
-        <div class="buttonRow" style="min-width:280px;">
-          <button class="secondary" id="refreshBtn">刷新数据</button>
-          <button class="ghost" id="logoutBtn">退出登录</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="card hidden" id="statsCard">
-      <div class="stats">
-        <div class="stat">
-          <div class="statLabel">上游数量</div>
-          <div class="statValue" id="providerCount">0</div>
-        </div>
-        <div class="stat">
-          <div class="statLabel">映射数量</div>
-          <div class="statValue" id="mappingCount">0</div>
-        </div>
-        <div class="stat">
-          <div class="statLabel">最近成功</div>
-          <div class="statValue" id="okCount">0</div>
-        </div>
-        <div class="stat">
-          <div class="statLabel">最近失败</div>
-          <div class="statValue" id="errorCount">0</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card hidden" id="workspaceCard">
-      <div class="columns">
-        <div>
-          <h2>上游服务</h2>
-          <p class="subtle" style="margin-bottom:14px;">支持 `OpenAI` 和 `Anthropic` 兼容协议。编辑时如果不想改密钥，留空即可。</p>
-          <form id="providerForm" class="item form">
-            <input type="hidden" name="id" />
-            <div class="grid2">
-              <div class="full">
-                <label>显示名称</label>
-                <input name="name" placeholder="例如：OpenRouter 主站" required />
-              </div>
-              <div>
-                <label>协议</label>
-                <select name="protocol">
-                  <option value="openai">OpenAI 兼容</option>
-                  <option value="anthropic">Anthropic 兼容</option>
-                </select>
-              </div>
-              <div>
-                <label>基础地址</label>
-                <input name="baseUrl" placeholder="https://api.example.com" required />
-              </div>
-              <div class="full">
-                <label>API Key</label>
-                <input name="apiKey" type="password" placeholder="新增必填，编辑可留空" />
-              </div>
-            </div>
-            <div class="buttonRow">
-              <button type="submit" id="providerSubmitBtn">保存上游</button>
-              <button type="button" class="secondary" id="providerResetBtn">清空</button>
-            </div>
-          </form>
-          <p id="providerMessage" class="message"></p>
-          <div id="providers" class="list"></div>
-        </div>
-
-        <div>
-          <h2>模型映射</h2>
-          <p class="subtle" style="margin-bottom:14px;">客户端只看见别名，真正调用哪个上游模型由这里决定。建议每条映射创建后立刻测试。</p>
-          <form id="mappingForm" class="item form">
-            <input type="hidden" name="id" />
-            <div class="grid2">
-              <div class="full">
-                <label>对外模型别名</label>
-                <input name="alias" placeholder="例如：claude-code-proxy" required />
-              </div>
-              <div>
-                <label>上游服务</label>
-                <select name="providerId" id="providerSelect"></select>
-              </div>
-              <div>
-                <label>上游模型名</label>
-                <input name="upstreamModel" placeholder="例如：gpt-4.1-mini" required />
-              </div>
-              <div><label><input type="checkbox" name="supportsNativeTools" /> 上游原生支持工具调用</label></div>
-              <div><label><input type="checkbox" name="requiresXmlShim" checked /> 需要 XML Shim</label></div>
-              <div class="full"><label><input type="checkbox" name="supportsStreaming" checked /> 上游支持流式</label></div>
-            </div>
-            <div class="buttonRow">
-              <button type="submit" id="mappingSubmitBtn">保存映射</button>
-              <button type="button" class="secondary" id="mappingResetBtn">清空</button>
-            </div>
-          </form>
-          <p id="mappingMessage" class="message"></p>
-          <div id="mappings" class="list"></div>
-        </div>
-
-        <div>
-          <h2>请求日志</h2>
-          <p class="subtle" style="margin-bottom:14px;">`started` 表示请求已经进入服务但尚未结束。超时、连通性失败或模型别名错误都会落日志。</p>
-          <div class="buttonRow" style="margin-bottom:12px;">
-            <button class="secondary" id="reloadLogsBtn">刷新日志</button>
-          </div>
-          <div id="logs" class="list"></div>
-        </div>
+        <button id="loginBtn" class="btn btnPrimary">登录控制台</button>
       </div>
     </section>
   </div>
 
-  <script>
-    const state = { providers: [], mappings: [], logs: [] };
+  <div id="appView" class="hidden">
+    <div class="shell">
+      <section class="card hero">
+        <div>
+          <div class="eyebrow"><strong>CC-Toolify</strong> 上游代理与故障定位</div>
+          <h1>把 XML Shim 的状态摊在桌面上</h1>
+          <p class="subtle">这个管理台只服务一种目标: 把不支持原生工具调用的模型，稳定接入到支持 `tools` 的下游客户端。配置、测试、日志和近期故障都会集中展示，避免你在代理链路里盲查。</p>
+        </div>
+        <div class="heroAside">
+          <div class="note">
+            <h3 style="margin-bottom:8px">当前策略</h3>
+            <p class="subtle">带 `tools` 的请求默认统一走 `XML Shim`。控制台不再暴露“原生工具支持”开关，避免把项目主线配置错。</p>
+          </div>
+          <div class="actions">
+            <button id="refreshBtn" class="btn btnSecondary">刷新数据</button>
+            <button id="logoutBtn" class="btn btnGhost">退出登录</button>
+          </div>
+        </div>
+      </section>
 
-    const loginCard = document.getElementById("loginCard");
-    const appCard = document.getElementById("appCard");
-    const statsCard = document.getElementById("statsCard");
-    const workspaceCard = document.getElementById("workspaceCard");
+      <section class="stats">
+        <div class="stat"><div class="statLabel">上游节点</div><div class="statValue" id="providerCount">0</div><div class="statHint">已登记的 API 渠道数量</div></div>
+        <div class="stat"><div class="statLabel">映射规则</div><div class="statValue" id="mappingCount">0</div><div class="statHint">客户端可见的模型别名</div></div>
+        <div class="stat"><div class="statLabel">近期成功</div><div class="statValue" id="okCount">0</div><div class="statHint">最近日志中状态为 ok</div></div>
+        <div class="stat"><div class="statLabel">近期失败</div><div class="statValue" id="errorCount">0</div><div class="statHint">优先排查这些请求</div></div>
+      </section>
+
+      <section class="tabs">
+        <button class="tabBtn active" data-tab="providersTab">上游服务</button>
+        <button class="tabBtn" data-tab="mappingsTab">模型映射</button>
+        <button class="tabBtn" data-tab="logsTab">请求日志</button>
+      </section>
+
+      <section id="providersTab" class="tabPane active">
+        <div class="grid">
+          <section class="card panel">
+            <div class="panelHead">
+              <div>
+                <h2 id="providerFormTitle">新增上游服务</h2>
+                <p class="subtle">支持 OpenAI 兼容和 Anthropic 兼容接口。编辑已有节点时，若不打算更换密钥，`API Key` 留空即可。</p>
+              </div>
+              <div class="pill">节点配置</div>
+            </div>
+            <div id="providerMessage" class="message"></div>
+            <form id="providerForm" class="formCard">
+              <input type="hidden" name="id" />
+              <div class="formGrid">
+                <div class="field full"><label>显示名称</label><input name="name" placeholder="例如：OpenRouter 主站" required /></div>
+                <div class="field"><label>协议类型</label><select name="protocol"><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic 兼容</option></select></div>
+                <div class="field"><label>基础地址</label><input name="baseUrl" placeholder="https://api.example.com" required /></div>
+                <div class="field full"><label>API Key</label><input name="apiKey" type="password" placeholder="新增必填，编辑可留空" /><div class="hint">控制台不会回显已有密钥。编辑时只有输入新值才会覆盖旧值。</div></div>
+              </div>
+              <div class="formActions">
+                <button id="providerSubmitBtn" class="btn btnPrimary" type="submit">保存上游</button>
+                <button id="providerCancelEditBtn" class="btn btnSecondary hidden" type="button">取消编辑</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="card panel">
+            <div class="panelHead">
+              <div>
+                <h2>已配置上游</h2>
+                <p class="subtle">建议每次新增或改动后先做“校验配置”，再去映射页做真实模型调用测试。</p>
+              </div>
+              <div class="pill">Provider List</div>
+            </div>
+            <div id="providersList" class="list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="mappingsTab" class="tabPane">
+        <div class="grid">
+          <section class="card panel">
+            <div class="panelHead">
+              <div>
+                <h2 id="mappingFormTitle">新增模型映射</h2>
+                <p class="subtle">客户端请求只认“别名”。真正要打到哪个上游模型、是否支持流式，由这里决定。工具请求默认固定走 `XML Shim`。</p>
+              </div>
+              <div class="pill">XML Shim Route</div>
+            </div>
+            <div id="mappingMessage" class="message"></div>
+            <form id="mappingForm" class="formCard">
+              <input type="hidden" name="id" />
+              <div class="formGrid">
+                <div class="field full"><label>对外模型别名</label><input name="alias" placeholder="例如：claude-code-proxy" required /></div>
+                <div class="field"><label>目标上游服务</label><select name="providerId" id="providerSelect"></select></div>
+                <div class="field"><label>真实上游模型名</label><input name="upstreamModel" placeholder="例如：qwen-max-latest" required /></div>
+                <div class="field full"><label class="switch"><input type="checkbox" name="supportsStreaming" checked /><span>上游支持流式输出</span></label><div class="hint">若这个选项关闭，映射仍会保存，但当前项目的工具调用稳定性会明显下降，不建议关闭。</div></div>
+              </div>
+              <div class="formActions">
+                <button id="mappingSubmitBtn" class="btn btnPrimary" type="submit">保存映射</button>
+                <button id="mappingCancelEditBtn" class="btn btnSecondary hidden" type="button">取消编辑</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="card panel">
+            <div class="panelHead">
+              <div>
+                <h2>已生效映射</h2>
+                <p class="subtle">“测试映射”会走真实代理链路，能帮助你确认别名命中、上游连通性和请求返回是否正常。</p>
+              </div>
+              <div class="pill">Alias Table</div>
+            </div>
+            <div id="mappingsList" class="list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="logsTab" class="tabPane">
+        <section class="card panel">
+          <div class="panelHead">
+            <div>
+              <h2>请求调用日志</h2>
+              <p class="subtle">每个进入代理的请求都会先落一条 `started` 记录，完成后再更新为 `ok` 或 `error`。如果工具调用异常、卡住、超时，这里是第一排查入口。</p>
+            </div>
+            <button id="reloadLogsBtn" class="btn btnSecondary">刷新日志</button>
+          </div>
+          <div class="filters">
+            <button class="filterBtn active" data-filter="all">全部</button>
+            <button class="filterBtn" data-filter="started">处理中</button>
+            <button class="filterBtn" data-filter="ok">成功</button>
+            <button class="filterBtn" data-filter="error">失败</button>
+          </div>
+          <div id="logsList" class="list"></div>
+        </section>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const state = { providers: [], mappings: [], logs: [], logFilter: "all" };
+    const loginView = document.getElementById("loginView");
+    const appView = document.getElementById("appView");
     const loginMessage = document.getElementById("loginMessage");
     const providerMessage = document.getElementById("providerMessage");
     const mappingMessage = document.getElementById("mappingMessage");
     const providerForm = document.getElementById("providerForm");
     const mappingForm = document.getElementById("mappingForm");
+    const providersList = document.getElementById("providersList");
+    const mappingsList = document.getElementById("mappingsList");
+    const logsList = document.getElementById("logsList");
     const providerSelect = document.getElementById("providerSelect");
-    const providersEl = document.getElementById("providers");
-    const mappingsEl = document.getElementById("mappings");
-    const logsEl = document.getElementById("logs");
 
     const setAuthenticated = (value) => {
-      loginCard.classList.toggle("hidden", value);
-      appCard.classList.toggle("hidden", !value);
-      statsCard.classList.toggle("hidden", !value);
-      workspaceCard.classList.toggle("hidden", !value);
+      loginView.classList.toggle("hidden", value);
+      appView.classList.toggle("hidden", !value);
     };
 
     const setMessage = (element, text, type = "") => {
@@ -430,20 +221,24 @@
     };
 
     const apiFetch = async (url, options = {}) => {
-      const response = await fetch(url, {
-        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-        ...options
-      });
-
+      const response = await fetch(url, { headers: { "Content-Type": "application/json", ...(options.headers || {}) }, ...options });
       const text = await response.text();
       const data = text ? JSON.parse(text) : null;
-      if (!response.ok) {
-        throw new Error(data?.error || `请求失败 (${response.status})`);
-      }
+      if (!response.ok) throw new Error(data?.error || `请求失败 (${response.status})`);
       return data;
     };
 
     const protocolLabel = (protocol) => protocol === "anthropic" ? "Anthropic 兼容" : "OpenAI 兼容";
+    const statusBadge = (status) => status === "ok"
+      ? `<span class="badge bOk">成功</span>`
+      : status === "error"
+        ? `<span class="badge bErr">失败</span>`
+        : `<span class="badge bWarn">处理中</span>`;
+
+    const switchTab = (tabId) => {
+      document.querySelectorAll(".tabBtn").forEach((button) => button.classList.toggle("active", button.dataset.tab === tabId));
+      document.querySelectorAll(".tabPane").forEach((pane) => pane.classList.toggle("active", pane.id === tabId));
+    };
 
     const renderStats = () => {
       document.getElementById("providerCount").textContent = String(state.providers.length);
@@ -453,115 +248,119 @@
     };
 
     const renderProviderOptions = () => {
-      providerSelect.innerHTML = state.providers.map((provider) =>
-        `<option value="${provider.id}">${provider.name} (${provider.protocol})</option>`
-      ).join("");
+      providerSelect.innerHTML = state.providers.length === 0
+        ? `<option value="">请先创建上游服务</option>`
+        : state.providers.map((provider) => `<option value="${provider.id}">${provider.name} (${provider.protocol})</option>`).join("");
     };
 
     const renderProviders = () => {
-      providersEl.innerHTML = state.providers.map((provider) => `
-        <div class="item">
-          <div class="itemHeader">
-            <div>
-              <h3>${provider.name}</h3>
-              <div class="itemMeta">${protocolLabel(provider.protocol)}</div>
-            </div>
-            <span class="chip">${provider.protocol}</span>
-          </div>
-          <div class="itemMeta">${provider.baseUrl}</div>
-          <div class="itemMeta">更新时间：${provider.updatedAt}</div>
-          <div class="buttonRow" style="margin-top:10px;">
-            <button class="secondary" type="button" data-provider-edit="${provider.id}">编辑</button>
-            <button class="ghost" type="button" data-provider-test="${provider.id}">校验配置</button>
-            <button class="danger" type="button" data-provider-delete="${provider.id}">删除</button>
-          </div>
-        </div>
-      `).join("") || `<div class="item"><div class="itemMeta">还没有配置任何上游服务。</div></div>`;
-    };
-
-    const renderMappings = () => {
-      mappingsEl.innerHTML = state.mappings.map((mapping) => `
-        <div class="item">
-          <div class="itemHeader">
-            <div>
-              <h3>${mapping.alias}</h3>
-              <div class="itemMeta">上游：${mapping.providerName || "未知上游"}</div>
-            </div>
-            <span class="chip">${mapping.upstreamModel}</span>
-          </div>
-          <div class="itemMeta">native=${mapping.supportsNativeTools} shim=${mapping.requiresXmlShim} stream=${mapping.supportsStreaming}</div>
-          <div class="itemMeta">更新时间：${mapping.updatedAt}</div>
-          <div class="buttonRow" style="margin-top:10px;">
-            <button class="secondary" type="button" data-mapping-edit="${mapping.id}">编辑</button>
-            <button class="ghost" type="button" data-mapping-test="${mapping.id}">测试映射</button>
-            <button class="danger" type="button" data-mapping-delete="${mapping.id}">删除</button>
-          </div>
-        </div>
-      `).join("") || `<div class="item"><div class="itemMeta">还没有配置任何模型映射。</div></div>`;
-    };
-
-    const renderLogs = () => {
-      logsEl.innerHTML = state.logs.map((log) => `
-        <div class="item">
-          <div class="itemHeader">
-            <div>
-              <h3>${log.route}</h3>
-              <div class="itemMeta">客户端=${log.clientProtocol} / 别名=${log.model}</div>
-            </div>
-            <span class="chip status-${log.status}">${log.status}</span>
-          </div>
-          <div class="itemMeta">上游=${log.providerName || "未命中"} / 实际模型=${log.upstreamModel || "-"}</div>
-          <div class="itemMeta">耗时=${log.durationMs == null ? "处理中" : `${log.durationMs}ms`} / 时间=${log.createdAt}</div>
-          ${log.detail ? `<pre>${log.detail}</pre>` : ""}
-        </div>
-      `).join("") || `<div class="item"><div class="itemMeta">暂无日志。</div></div>`;
-    };
-
-    const renderAll = () => {
-      renderStats();
-      renderProviderOptions();
-      renderProviders();
-      renderMappings();
-      renderLogs();
-    };
-
-    const loadBootstrap = async () => {
-      const response = await fetch("/admin/api/bootstrap");
-      if (!response.ok) {
-        setAuthenticated(false);
+      if (state.providers.length === 0) {
+        providersList.innerHTML = `<div class="empty">还没有任何上游配置。建议先新增一个已知可用的兼容接口，再进入模型映射页。</div>`;
         return;
       }
 
-      const data = await response.json();
-      state.providers = data.providers || [];
-      state.mappings = data.mappings || [];
-      state.logs = data.logs || [];
-      renderAll();
-      setAuthenticated(true);
+      providersList.innerHTML = state.providers.map((provider) => `
+        <article class="item">
+          <div class="itemTop">
+            <div><h3 class="itemTitle">${provider.name}</h3><div class="meta">${provider.baseUrl}</div></div>
+            <span class="badge bPrimary">${protocolLabel(provider.protocol)}</span>
+          </div>
+          <div class="meta">更新时间: ${provider.updatedAt}</div>
+          <div class="badges"><span class="badge bSlate">接口协议 ${provider.protocol}</span><span class="badge bSlate">可用于多模型映射</span></div>
+          <div class="itemActions">
+            <button class="btn btnSecondary btnSlim" type="button" data-action="edit-provider" data-id="${provider.id}">编辑</button>
+            <button class="btn btnGhost btnSlim" type="button" data-action="test-provider" data-id="${provider.id}">校验配置</button>
+            <button class="btn btnDanger btnSlim" type="button" data-action="delete-provider" data-id="${provider.id}">删除</button>
+          </div>
+        </article>`).join("");
+    };
+
+    const renderMappings = () => {
+      if (state.mappings.length === 0) {
+        mappingsList.innerHTML = `<div class="empty">还没有任何模型映射。建议按“客户端别名 → 上游模型”的思路建立映射，并在保存后立即执行测试。</div>`;
+        return;
+      }
+
+      mappingsList.innerHTML = state.mappings.map((mapping) => `
+        <article class="item">
+          <div class="itemTop">
+            <div><h3 class="itemTitle">${mapping.alias}</h3><div class="meta">目标上游: ${mapping.providerName || "未知上游"} / ${mapping.upstreamModel}</div></div>
+            <span class="badge bPrimary">XML Shim</span>
+          </div>
+          <div class="meta">更新时间: ${mapping.updatedAt}</div>
+          <div class="badges"><span class="badge bSlate">stream ${mapping.supportsStreaming ? "开启" : "关闭"}</span><span class="badge bSlate">别名路由</span><span class="badge bSlate">工具调用经 XML 注入</span></div>
+          <div class="itemActions">
+            <button class="btn btnSecondary btnSlim" type="button" data-action="edit-mapping" data-id="${mapping.id}">编辑</button>
+            <button class="btn btnGhost btnSlim" type="button" data-action="test-mapping" data-id="${mapping.id}">测试映射</button>
+            <button class="btn btnDanger btnSlim" type="button" data-action="delete-mapping" data-id="${mapping.id}">删除</button>
+          </div>
+        </article>`).join("");
+    };
+
+    const renderLogs = () => {
+      const logs = state.logFilter === "all" ? state.logs : state.logs.filter((log) => log.status === state.logFilter);
+      if (logs.length === 0) {
+        logsList.innerHTML = `<div class="empty">当前筛选条件下没有日志。你可以先执行一次映射测试，再回到这里看链路记录。</div>`;
+        return;
+      }
+
+      logsList.innerHTML = logs.map((log) => `
+        <article class="item">
+          <div class="itemTop">
+            <div><h3 class="itemTitle">${log.route}</h3><div class="meta">客户端协议: ${log.clientProtocol} / 模型别名: ${log.model}</div></div>
+            ${statusBadge(log.status)}
+          </div>
+          <div class="meta">命中上游: ${log.providerName || "未命中"} / 实际模型: ${log.upstreamModel || "-"}</div>
+          <div class="meta">耗时: ${log.durationMs == null ? "处理中" : `${log.durationMs}ms`} / 时间: ${log.createdAt}</div>
+          ${log.detail ? `<div class="logDetail">${log.detail}</div>` : ""}
+        </article>`).join("");
+    };
+
+    const renderAll = () => { renderStats(); renderProviderOptions(); renderProviders(); renderMappings(); renderLogs(); };
+
+    const loadBootstrap = async () => {
+      try {
+        const data = await apiFetch("/admin/api/bootstrap");
+        state.providers = data.providers || [];
+        state.mappings = data.mappings || [];
+        state.logs = data.logs || [];
+        renderAll();
+        setAuthenticated(true);
+      } catch {
+        setAuthenticated(false);
+      }
     };
 
     const resetProviderForm = () => {
       providerForm.reset();
       providerForm.elements.id.value = "";
+      document.getElementById("providerFormTitle").textContent = "新增上游服务";
       document.getElementById("providerSubmitBtn").textContent = "保存上游";
+      document.getElementById("providerCancelEditBtn").classList.add("hidden");
       setMessage(providerMessage, "");
     };
 
     const resetMappingForm = () => {
       mappingForm.reset();
       mappingForm.elements.id.value = "";
-      mappingForm.elements.requiresXmlShim.checked = true;
       mappingForm.elements.supportsStreaming.checked = true;
+      document.getElementById("mappingFormTitle").textContent = "新增模型映射";
       document.getElementById("mappingSubmitBtn").textContent = "保存映射";
+      document.getElementById("mappingCancelEditBtn").classList.add("hidden");
       setMessage(mappingMessage, "");
     };
 
+    document.querySelectorAll(".tabBtn").forEach((button) => button.addEventListener("click", () => switchTab(button.dataset.tab)));
+    document.querySelectorAll(".filterBtn").forEach((button) => button.addEventListener("click", () => {
+      state.logFilter = button.dataset.filter;
+      document.querySelectorAll(".filterBtn").forEach((item) => item.classList.toggle("active", item.dataset.filter === state.logFilter));
+      renderLogs();
+    }));
+
     document.getElementById("loginBtn").addEventListener("click", async () => {
       try {
-        await apiFetch("/admin/login", {
-          method: "POST",
-          body: JSON.stringify({ password: document.getElementById("password").value })
-        });
+        await apiFetch("/admin/login", { method: "POST", body: JSON.stringify({ password: document.getElementById("password").value }) });
+        document.getElementById("password").value = "";
         setMessage(loginMessage, "");
         await loadBootstrap();
       } catch (error) {
@@ -576,29 +375,16 @@
 
     document.getElementById("refreshBtn").addEventListener("click", loadBootstrap);
     document.getElementById("reloadLogsBtn").addEventListener("click", loadBootstrap);
-    document.getElementById("providerResetBtn").addEventListener("click", resetProviderForm);
-    document.getElementById("mappingResetBtn").addEventListener("click", resetMappingForm);
+    document.getElementById("providerCancelEditBtn").addEventListener("click", resetProviderForm);
+    document.getElementById("mappingCancelEditBtn").addEventListener("click", resetMappingForm);
 
     providerForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const form = new FormData(providerForm);
-      const payload = Object.fromEntries(form.entries());
+      const payload = Object.fromEntries(new FormData(providerForm).entries());
       const id = String(payload.id || "");
-
       try {
-        if (id) {
-          await apiFetch(`/admin/api/providers/${id}`, {
-            method: "PUT",
-            body: JSON.stringify(payload)
-          });
-          setMessage(providerMessage, "上游已更新。", "ok");
-        } else {
-          await apiFetch("/admin/api/providers", {
-            method: "POST",
-            body: JSON.stringify(payload)
-          });
-          setMessage(providerMessage, "上游已创建。", "ok");
-        }
+        await apiFetch(id ? `/admin/api/providers/${id}` : "/admin/api/providers", { method: id ? "PUT" : "POST", body: JSON.stringify(payload) });
+        setMessage(providerMessage, id ? "上游配置已更新。" : "上游配置已创建。", "ok");
         resetProviderForm();
         await loadBootstrap();
       } catch (error) {
@@ -611,24 +397,10 @@
       const form = new FormData(mappingForm);
       const payload = Object.fromEntries(form.entries());
       const id = String(payload.id || "");
-      payload.supportsNativeTools = form.get("supportsNativeTools") === "on";
-      payload.requiresXmlShim = form.get("requiresXmlShim") === "on";
       payload.supportsStreaming = form.get("supportsStreaming") === "on";
-
       try {
-        if (id) {
-          await apiFetch(`/admin/api/mappings/${id}`, {
-            method: "PUT",
-            body: JSON.stringify(payload)
-          });
-          setMessage(mappingMessage, "映射已更新。", "ok");
-        } else {
-          await apiFetch("/admin/api/mappings", {
-            method: "POST",
-            body: JSON.stringify(payload)
-          });
-          setMessage(mappingMessage, "映射已创建。", "ok");
-        }
+        await apiFetch(id ? `/admin/api/mappings/${id}` : "/admin/api/mappings", { method: id ? "PUT" : "POST", body: JSON.stringify(payload) });
+        setMessage(mappingMessage, id ? "映射规则已更新。" : "映射规则已创建。", "ok");
         resetMappingForm();
         await loadBootstrap();
       } catch (error) {
@@ -636,38 +408,33 @@
       }
     });
 
-    providersEl.addEventListener("click", async (event) => {
+    providersList.addEventListener("click", async (event) => {
       const button = event.target.closest("button");
-      if (!button) {
-        return;
-      }
+      if (!button) return;
+      const { action, id } = button.dataset;
+      if (!id) return;
 
-      const editId = button.dataset.providerEdit;
-      const testId = button.dataset.providerTest;
-      const deleteId = button.dataset.providerDelete;
-
-      if (editId) {
-        const provider = state.providers.find((item) => item.id === editId);
-        if (!provider) {
-          return;
-        }
+      if (action === "edit-provider") {
+        const provider = state.providers.find((item) => item.id === id);
+        if (!provider) return;
         providerForm.elements.id.value = provider.id;
         providerForm.elements.name.value = provider.name;
         providerForm.elements.protocol.value = provider.protocol;
         providerForm.elements.baseUrl.value = provider.baseUrl;
         providerForm.elements.apiKey.value = "";
-        document.getElementById("providerSubmitBtn").textContent = "更新上游";
-        setMessage(providerMessage, `正在编辑：${provider.name}`);
+        document.getElementById("providerFormTitle").textContent = `编辑上游: ${provider.name}`;
+        document.getElementById("providerSubmitBtn").textContent = "保存修改";
+        document.getElementById("providerCancelEditBtn").classList.remove("hidden");
+        setMessage(providerMessage, "已进入编辑模式。若不修改 API Key，请保持留空。");
+        switchTab("providersTab");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
 
-      if (testId) {
+      if (action === "test-provider") {
         try {
-          await apiFetch(`/admin/api/providers/${testId}/test`, {
-            method: "POST",
-            body: JSON.stringify({})
-          });
-          setMessage(providerMessage, "上游基础配置已通过校验。建议继续测试模型映射。", "ok");
+          await apiFetch(`/admin/api/providers/${id}/test`, { method: "POST", body: JSON.stringify({}) });
+          setMessage(providerMessage, "上游基础配置校验通过。建议继续测试映射。", "ok");
           await loadBootstrap();
         } catch (error) {
           setMessage(providerMessage, error.message, "error");
@@ -675,12 +442,10 @@
         return;
       }
 
-      if (deleteId) {
-        if (!confirm("删除上游前，请先确认相关模型映射已经清理。确定删除吗？")) {
-          return;
-        }
+      if (action === "delete-provider") {
+        if (!confirm("删除上游前，请先确认相关模型映射已经清理。确定删除吗？")) return;
         try {
-          await apiFetch(`/admin/api/providers/${deleteId}`, { method: "DELETE" });
+          await apiFetch(`/admin/api/providers/${id}`, { method: "DELETE" });
           setMessage(providerMessage, "上游已删除。", "ok");
           resetProviderForm();
           await loadBootstrap();
@@ -690,40 +455,33 @@
       }
     });
 
-    mappingsEl.addEventListener("click", async (event) => {
+    mappingsList.addEventListener("click", async (event) => {
       const button = event.target.closest("button");
-      if (!button) {
-        return;
-      }
+      if (!button) return;
+      const { action, id } = button.dataset;
+      if (!id) return;
 
-      const editId = button.dataset.mappingEdit;
-      const testId = button.dataset.mappingTest;
-      const deleteId = button.dataset.mappingDelete;
-
-      if (editId) {
-        const mapping = state.mappings.find((item) => item.id === editId);
-        if (!mapping) {
-          return;
-        }
+      if (action === "edit-mapping") {
+        const mapping = state.mappings.find((item) => item.id === id);
+        if (!mapping) return;
         mappingForm.elements.id.value = mapping.id;
         mappingForm.elements.alias.value = mapping.alias;
         mappingForm.elements.providerId.value = mapping.providerId;
         mappingForm.elements.upstreamModel.value = mapping.upstreamModel;
-        mappingForm.elements.supportsNativeTools.checked = Boolean(mapping.supportsNativeTools);
-        mappingForm.elements.requiresXmlShim.checked = Boolean(mapping.requiresXmlShim);
         mappingForm.elements.supportsStreaming.checked = Boolean(mapping.supportsStreaming);
-        document.getElementById("mappingSubmitBtn").textContent = "更新映射";
-        setMessage(mappingMessage, `正在编辑：${mapping.alias}`);
+        document.getElementById("mappingFormTitle").textContent = `编辑映射: ${mapping.alias}`;
+        document.getElementById("mappingSubmitBtn").textContent = "保存修改";
+        document.getElementById("mappingCancelEditBtn").classList.remove("hidden");
+        setMessage(mappingMessage, "已进入编辑模式。当前项目默认通过 XML Shim 处理工具调用。");
+        switchTab("mappingsTab");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
 
-      if (testId) {
+      if (action === "test-mapping") {
         try {
-          const result = await apiFetch(`/admin/api/mappings/${testId}/test`, {
-            method: "POST",
-            body: JSON.stringify({})
-          });
-          setMessage(mappingMessage, `测试成功。上游=${result.providerName}，模型=${result.upstreamModel}`, "ok");
+          const result = await apiFetch(`/admin/api/mappings/${id}/test`, { method: "POST", body: JSON.stringify({}) });
+          setMessage(mappingMessage, `测试成功。命中上游 ${result.providerName}，实际模型 ${result.upstreamModel}。`, "ok");
           await loadBootstrap();
         } catch (error) {
           setMessage(mappingMessage, error.message, "error");
@@ -731,12 +489,10 @@
         return;
       }
 
-      if (deleteId) {
-        if (!confirm("确定删除这条模型映射吗？")) {
-          return;
-        }
+      if (action === "delete-mapping") {
+        if (!confirm("确定删除这条模型映射吗？客户端将无法继续使用这个别名。")) return;
         try {
-          await apiFetch(`/admin/api/mappings/${deleteId}`, { method: "DELETE" });
+          await apiFetch(`/admin/api/mappings/${id}`, { method: "DELETE" });
           setMessage(mappingMessage, "映射已删除。", "ok");
           resetMappingForm();
           await loadBootstrap();
