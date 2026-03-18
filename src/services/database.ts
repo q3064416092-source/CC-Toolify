@@ -2,13 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import initSqlJs, { Database, SqlJsStatic } from "sql.js";
 import { appConfig } from "../config.js";
-import { ModelMappingRecord, ProviderRecord, RequestLogRecord } from "../types.js";
+import { ModelMappingRecord, ProviderRecord, RequestLogRecord, XmlShimStyle } from "../types.js";
 
 type ProviderRow = {
   id: string;
   name: string;
   protocol: "anthropic" | "openai";
   baseUrl: string;
+  shimStyle: XmlShimStyle;
   apiKeyEncrypted: string;
   createdAt: string;
   updatedAt: string;
@@ -93,6 +94,7 @@ export class DatabaseService {
         name TEXT NOT NULL,
         protocol TEXT NOT NULL,
         base_url TEXT NOT NULL,
+        shim_style TEXT NOT NULL DEFAULT 'legacy',
         api_key_encrypted TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
@@ -125,10 +127,12 @@ export class DatabaseService {
       );
     `);
 
+    this.ensureColumn("providers", "shim_style", "TEXT DEFAULT 'legacy'");
     this.ensureColumn("request_logs", "request_id", "TEXT");
     this.ensureColumn("request_logs", "client_protocol", "TEXT");
     this.ensureColumn("request_logs", "upstream_model", "TEXT");
     this.ensureColumn("request_logs", "duration_ms", "INTEGER");
+    this.db.run(`UPDATE providers SET shim_style = 'legacy' WHERE shim_style IS NULL OR shim_style = ''`);
   }
 
   private ensureColumn(table: string, column: string, type: string): void {
@@ -152,7 +156,8 @@ export class DatabaseService {
 
   listProviders(): ProviderRecord[] {
     const statement = this.db.prepare(`
-      SELECT id, name, protocol, base_url AS baseUrl, api_key_encrypted AS apiKeyEncrypted, created_at AS createdAt, updated_at AS updatedAt
+      SELECT id, name, protocol, base_url AS baseUrl, COALESCE(shim_style, 'legacy') AS shimStyle,
+             api_key_encrypted AS apiKeyEncrypted, created_at AS createdAt, updated_at AS updatedAt
       FROM providers
       ORDER BY created_at DESC
     `);
@@ -167,7 +172,8 @@ export class DatabaseService {
 
   getProviderById(providerId: string): ProviderRecord | null {
     const statement = this.db.prepare(`
-      SELECT id, name, protocol, base_url AS baseUrl, api_key_encrypted AS apiKeyEncrypted, created_at AS createdAt, updated_at AS updatedAt
+      SELECT id, name, protocol, base_url AS baseUrl, COALESCE(shim_style, 'legacy') AS shimStyle,
+             api_key_encrypted AS apiKeyEncrypted, created_at AS createdAt, updated_at AS updatedAt
       FROM providers
       WHERE id = ?
       LIMIT 1
@@ -180,14 +186,15 @@ export class DatabaseService {
 
   insertProvider(record: ProviderRecord): void {
     const statement = this.db.prepare(`
-      INSERT INTO providers (id, name, protocol, base_url, api_key_encrypted, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO providers (id, name, protocol, base_url, shim_style, api_key_encrypted, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     statement.run([
       record.id,
       record.name,
       record.protocol,
       record.baseUrl,
+      record.shimStyle,
       record.apiKeyEncrypted,
       record.createdAt,
       record.updatedAt
@@ -199,13 +206,14 @@ export class DatabaseService {
   updateProvider(record: ProviderRecord): void {
     const statement = this.db.prepare(`
       UPDATE providers
-      SET name = ?, protocol = ?, base_url = ?, api_key_encrypted = ?, updated_at = ?
+      SET name = ?, protocol = ?, base_url = ?, shim_style = ?, api_key_encrypted = ?, updated_at = ?
       WHERE id = ?
     `);
     statement.run([
       record.name,
       record.protocol,
       record.baseUrl,
+      record.shimStyle,
       record.apiKeyEncrypted,
       record.updatedAt,
       record.id
@@ -352,6 +360,7 @@ export class DatabaseService {
         p.name AS name,
         p.protocol AS protocol,
         p.base_url AS baseUrl,
+        COALESCE(p.shim_style, 'legacy') AS shimStyle,
         p.api_key_encrypted AS apiKeyEncrypted,
         p.created_at AS providerCreatedAt,
         p.updated_at AS providerUpdatedAt

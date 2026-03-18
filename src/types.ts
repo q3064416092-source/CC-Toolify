@@ -1,4 +1,5 @@
-﻿export type ExternalProtocol = "anthropic" | "openai";
+export type ExternalProtocol = "anthropic" | "openai";
+export type XmlShimStyle = "legacy" | "private_v1";
 
 export type Role = "system" | "user" | "assistant" | "tool";
 
@@ -53,6 +54,7 @@ export interface ProviderRecord {
   name: string;
   protocol: ExternalProtocol;
   baseUrl: string;
+  shimStyle: XmlShimStyle;
   apiKeyEncrypted: string;
   createdAt: string;
   updatedAt: string;

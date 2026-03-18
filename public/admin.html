@@ -113,6 +113,7 @@
               <div class="formGrid">
                 <div class="field full"><label>显示名称</label><input name="name" placeholder="例如：OpenRouter 主站" required /></div>
                 <div class="field"><label>协议类型</label><select name="protocol"><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic 兼容</option></select></div>
+                <div class="field"><label>Shim 结构样式</label><select name="shimStyle"><option value="legacy">旧样式</option><option value="private_v1">差异化样式</option></select></div>
                 <div class="field"><label>基础地址</label><input name="baseUrl" placeholder="https://api.example.com" required /></div>
                 <div class="field full"><label>API Key</label><input name="apiKey" type="password" placeholder="新增必填，编辑可留空" /><div class="hint">控制台不会回显已有密钥。编辑时只有输入新值才会覆盖旧值。</div></div>
               </div>
@@ -266,7 +267,7 @@
             <span class="badge bPrimary">${protocolLabel(provider.protocol)}</span>
           </div>
           <div class="meta">更新时间: ${provider.updatedAt}</div>
-          <div class="badges"><span class="badge bSlate">接口协议 ${provider.protocol}</span><span class="badge bSlate">可用于多模型映射</span></div>
+          <div class="badges"><span class="badge bSlate">接口协议 ${provider.protocol}</span><span class="badge bSlate">shim ${provider.shimStyle === "private_v1" ? "差异化" : "旧样式"}</span><span class="badge bSlate">可用于多模型映射</span></div>
           <div class="itemActions">
             <button class="btn btnSecondary btnSlim" type="button" data-action="edit-provider" data-id="${provider.id}">编辑</button>
             <button class="btn btnGhost btnSlim" type="button" data-action="test-provider" data-id="${provider.id}">校验配置</button>
@@ -420,6 +421,7 @@
         providerForm.elements.id.value = provider.id;
         providerForm.elements.name.value = provider.name;
         providerForm.elements.protocol.value = provider.protocol;
+        providerForm.elements.shimStyle.value = provider.shimStyle || "legacy";
         providerForm.elements.baseUrl.value = provider.baseUrl;
         providerForm.elements.apiKey.value = "";
         document.getElementById("providerFormTitle").textContent = `编辑上游: ${provider.name}`;

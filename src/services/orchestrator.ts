@@ -95,7 +95,7 @@ export class OrchestratorService {
         }
 
         for await (const chunk of upstream) {
-          const consumed = consumeXmlText(parser, chunk);
+          const consumed = consumeXmlText(parser, chunk, runtime.provider.shimStyle);
           parser = consumed.state;
 
           if (consumed.newText) {
@@ -130,10 +130,10 @@ export class OrchestratorService {
   }
 
   private buildShimPayload(runtime: RuntimeModelConfig, request: NormalizedRequest): Record<string, unknown> {
-    const systemPrompt = [request.systemPrompt, buildXmlShimPrompt(request.tools)]
+    const systemPrompt = [request.systemPrompt, buildXmlShimPrompt(request.tools, runtime.provider.shimStyle)]
       .filter(Boolean)
       .join("\n\n");
-    const messages = shapeMessagesForShim(request.messages);
+    const messages = shapeMessagesForShim(request.messages, runtime.provider.shimStyle);
 
     if (runtime.provider.protocol === "anthropic") {
       return {

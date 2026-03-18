@@ -48,6 +48,7 @@ const toPublicProvider = (provider: ProviderRecord) => ({
   name: provider.name,
   protocol: provider.protocol,
   baseUrl: provider.baseUrl,
+  shimStyle: provider.shimStyle,
   createdAt: provider.createdAt,
   updatedAt: provider.updatedAt
 });
@@ -159,6 +160,7 @@ app.post("/admin/api/providers", adminOnly, async (request, response) => {
       name: String(request.body?.name ?? ""),
       protocol: request.body?.protocol === "anthropic" ? "anthropic" : "openai",
       baseUrl: String(request.body?.baseUrl ?? ""),
+      shimStyle: request.body?.shimStyle === "private_v1" ? "private_v1" : "legacy",
       apiKey: String(request.body?.apiKey ?? "")
     });
 
@@ -173,6 +175,7 @@ app.put("/admin/api/providers/:providerId", adminOnly, async (request, response)
       name: String(request.body?.name ?? ""),
       protocol: request.body?.protocol === "anthropic" ? "anthropic" : "openai",
       baseUrl: String(request.body?.baseUrl ?? ""),
+      shimStyle: request.body?.shimStyle === "private_v1" ? "private_v1" : "legacy",
       apiKey: typeof request.body?.apiKey === "string" ? request.body.apiKey : undefined
     });
 
@@ -241,6 +244,7 @@ app.post("/admin/api/providers/:providerId/test", adminOnly, async (request, res
       name: provider.name,
       protocol: provider.protocol,
       baseUrl: provider.baseUrl,
+      shimStyle: provider.shimStyle,
       apiKey: typeof request.body?.apiKey === "string" && request.body.apiKey.trim()
         ? request.body.apiKey
         : undefined

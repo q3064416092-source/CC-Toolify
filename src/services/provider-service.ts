@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { appConfig } from "../config.js";
-import { ModelMappingRecord, ProviderRecord, RuntimeModelConfig } from "../types.js";
+import { ModelMappingRecord, ProviderRecord, RuntimeModelConfig, XmlShimStyle } from "../types.js";
 import { decryptSecret, encryptSecret } from "../utils/crypto.js";
 import { DatabaseService } from "./database.js";
 
@@ -8,6 +8,7 @@ interface ProviderInput {
   name: string;
   protocol: "anthropic" | "openai";
   baseUrl: string;
+  shimStyle?: XmlShimStyle;
   apiKey?: string;
 }
 
@@ -54,6 +55,7 @@ export class ProviderService {
       name: sanitized.name,
       protocol: sanitized.protocol,
       baseUrl: sanitized.baseUrl,
+      shimStyle: sanitized.shimStyle,
       apiKeyEncrypted: encryptSecret(sanitized.apiKey, appConfig.appSecret),
       createdAt: now,
       updatedAt: now
@@ -75,6 +77,7 @@ export class ProviderService {
       name: sanitized.name,
       protocol: sanitized.protocol,
       baseUrl: sanitized.baseUrl,
+      shimStyle: sanitized.shimStyle,
       apiKeyEncrypted: sanitized.apiKey
         ? encryptSecret(sanitized.apiKey, appConfig.appSecret)
         : existing.apiKeyEncrypted,
@@ -171,6 +174,7 @@ export class ProviderService {
         name: row.name,
         protocol: row.protocol,
         baseUrl: row.baseUrl,
+        shimStyle: row.shimStyle,
         apiKey: decryptSecret(row.apiKeyEncrypted, appConfig.appSecret),
         createdAt: row.providerCreatedAt,
         updatedAt: row.providerUpdatedAt
@@ -190,7 +194,7 @@ export class ProviderService {
   private sanitizeProviderInput(
     input: ProviderInput,
     requireApiKey: boolean
-  ): ProviderInput & { apiKey: string } {
+  ): ProviderInput & { apiKey: string; shimStyle: XmlShimStyle } {
     const name = input.name.trim();
     if (!name) {
       throw new ProviderServiceError("Provider name cannot be empty", 400);
@@ -198,13 +202,14 @@ export class ProviderService {
 
     const protocol = input.protocol === "anthropic" ? "anthropic" : "openai";
     const baseUrl = this.normalizeBaseUrl(input.baseUrl);
+    const shimStyle = input.shimStyle === "private_v1" ? "private_v1" : "legacy";
     const apiKey = (input.apiKey ?? "").trim();
 
     if (requireApiKey && !apiKey) {
       throw new ProviderServiceError("API Key cannot be empty", 400);
     }
 
-    return { name, protocol, baseUrl, apiKey };
+    return { name, protocol, baseUrl, shimStyle, apiKey };
   }
 
   private sanitizeMappingInput(
