@@ -189,3 +189,41 @@ export const encodeOpenAiStreamEvents = (final: FinalizedRun): string[] => {
   return events;
 };
 
+export const encodeOpenAiStreamRoleChunk = (): string =>
+  `data: ${JSON.stringify({
+    id: `chatcmpl_${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: "cc-toolify",
+    choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }]
+  })}\n\n`;
+
+export const encodeOpenAiTextDelta = (text: string): string =>
+  `data: ${JSON.stringify({
+    id: `chatcmpl_${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: "cc-toolify",
+    choices: [{ index: 0, delta: { content: text }, finish_reason: null }]
+  })}\n\n`;
+
+export const encodeOpenAiToolCallChunk = (toolCalls: XmlToolCall[]): string =>
+  `data: ${JSON.stringify({
+    id: `chatcmpl_${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: "cc-toolify",
+    choices: [{ index: 0, delta: { tool_calls: mapToolCalls(toolCalls) }, finish_reason: "tool_calls" }]
+  })}\n\n`;
+
+export const encodeOpenAiStreamStop = (finishReason: "stop" | "tool_calls"): string[] => [
+  `data: ${JSON.stringify({
+    id: `chatcmpl_${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: "cc-toolify",
+    choices: [{ index: 0, delta: {}, finish_reason: finishReason }]
+  })}\n\n`,
+  "data: [DONE]\n\n"
+];
+

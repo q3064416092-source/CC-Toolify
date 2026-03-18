@@ -99,10 +99,14 @@ export interface FinalizedRun {
 
 export interface RequestLogRecord {
   id: string;
+  requestId: string;
   route: string;
+  clientProtocol: ExternalProtocol;
   model: string;
+  upstreamModel: string | null;
   providerName: string | null;
-  status: string;
+  status: "started" | "ok" | "error";
+  durationMs: number | null;
   detail: string | null;
   createdAt: string;
 }

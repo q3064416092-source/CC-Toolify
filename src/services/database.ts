@@ -26,6 +26,30 @@ type MappingRow = {
   updatedAt: string;
 };
 
+type RequestLogRow = {
+  id: string;
+  requestId: string;
+  route: string;
+  clientProtocol: "anthropic" | "openai";
+  model: string;
+  upstreamModel: string | null;
+  providerName: string | null;
+  status: "started" | "ok" | "error";
+  durationMs: number | null;
+  detail: string | null;
+  createdAt: string;
+};
+
+type ModelWithProviderRow = MappingRow &
+  ProviderRow & {
+    mappingId: string;
+    providerRealId: string;
+    mappingCreatedAt: string;
+    mappingUpdatedAt: string;
+    providerCreatedAt: string;
+    providerUpdatedAt: string;
+  };
+
 const rowToObject = <T>(statement: { getColumnNames(): string[]; get(): unknown[] }): T => {
   const columns = statement.getColumnNames();
   const values = statement.get();
@@ -88,14 +112,37 @@ export class DatabaseService {
 
       CREATE TABLE IF NOT EXISTS request_logs (
         id TEXT PRIMARY KEY,
+        request_id TEXT,
         route TEXT NOT NULL,
+        client_protocol TEXT,
         model TEXT NOT NULL,
+        upstream_model TEXT,
         provider_name TEXT,
         status TEXT NOT NULL,
+        duration_ms INTEGER,
         detail TEXT,
         created_at TEXT NOT NULL
       );
     `);
+
+    this.ensureColumn("request_logs", "request_id", "TEXT");
+    this.ensureColumn("request_logs", "client_protocol", "TEXT");
+    this.ensureColumn("request_logs", "upstream_model", "TEXT");
+    this.ensureColumn("request_logs", "duration_ms", "INTEGER");
+  }
+
+  private ensureColumn(table: string, column: string, type: string): void {
+    const statement = this.db.prepare(`PRAGMA table_info(${table})`);
+    const names: string[] = [];
+    while (statement.step()) {
+      const row = rowToObject<{ name: string }>(statement);
+      names.push(row.name);
+    }
+    statement.free();
+
+    if (!names.includes(column)) {
+      this.db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
   }
 
   private persist(): void {
@@ -118,6 +165,75 @@ export class DatabaseService {
     return rows;
   }
 
+  getProviderById(providerId: string): ProviderRecord | null {
+    const statement = this.db.prepare(`
+      SELECT id, name, protocol, base_url AS baseUrl, api_key_encrypted AS apiKeyEncrypted, created_at AS createdAt, updated_at AS updatedAt
+      FROM providers
+      WHERE id = ?
+      LIMIT 1
+    `);
+    statement.bind([providerId]);
+    const row = statement.step() ? rowToObject<ProviderRecord>(statement) : null;
+    statement.free();
+    return row;
+  }
+
+  insertProvider(record: ProviderRecord): void {
+    const statement = this.db.prepare(`
+      INSERT INTO providers (id, name, protocol, base_url, api_key_encrypted, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    statement.run([
+      record.id,
+      record.name,
+      record.protocol,
+      record.baseUrl,
+      record.apiKeyEncrypted,
+      record.createdAt,
+      record.updatedAt
+    ]);
+    statement.free();
+    this.persist();
+  }
+
+  updateProvider(record: ProviderRecord): void {
+    const statement = this.db.prepare(`
+      UPDATE providers
+      SET name = ?, protocol = ?, base_url = ?, api_key_encrypted = ?, updated_at = ?
+      WHERE id = ?
+    `);
+    statement.run([
+      record.name,
+      record.protocol,
+      record.baseUrl,
+      record.apiKeyEncrypted,
+      record.updatedAt,
+      record.id
+    ]);
+    statement.free();
+    this.persist();
+  }
+
+  deleteProvider(providerId: string): void {
+    const statement = this.db.prepare(`DELETE FROM providers WHERE id = ?`);
+    statement.run([providerId]);
+    statement.free();
+    this.persist();
+  }
+
+  providerHasMappings(providerId: string): boolean {
+    const statement = this.db.prepare(`
+      SELECT 1
+      FROM model_mappings
+      WHERE provider_id = ?
+      LIMIT 1
+    `);
+    statement.bind([providerId]);
+    const found = statement.step();
+    statement.free();
+    return found;
+  }
+
   listMappings(): ModelMappingRecord[] {
     const statement = this.db.prepare(`
       SELECT id, alias, provider_id AS providerId, upstream_model AS upstreamModel,
@@ -137,22 +253,38 @@ export class DatabaseService {
     return rows;
   }
 
-  insertProvider(record: ProviderRecord): void {
+  getMappingById(mappingId: string): ModelMappingRecord | null {
     const statement = this.db.prepare(`
-      INSERT INTO providers (id, name, protocol, base_url, api_key_encrypted, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      SELECT id, alias, provider_id AS providerId, upstream_model AS upstreamModel,
+             supports_native_tools AS supportsNativeTools,
+             requires_xml_shim AS requiresXmlShim,
+             supports_streaming AS supportsStreaming,
+             created_at AS createdAt, updated_at AS updatedAt
+      FROM model_mappings
+      WHERE id = ?
+      LIMIT 1
     `);
-    statement.run([
-      record.id,
-      record.name,
-      record.protocol,
-      record.baseUrl,
-      record.apiKeyEncrypted,
-      record.createdAt,
-      record.updatedAt
-    ]);
+    statement.bind([mappingId]);
+    const row = statement.step() ? rowToObject<ModelMappingRecord>(statement) : null;
     statement.free();
-    this.persist();
+    return row;
+  }
+
+  findMappingByAlias(alias: string): ModelMappingRecord | null {
+    const statement = this.db.prepare(`
+      SELECT id, alias, provider_id AS providerId, upstream_model AS upstreamModel,
+             supports_native_tools AS supportsNativeTools,
+             requires_xml_shim AS requiresXmlShim,
+             supports_streaming AS supportsStreaming,
+             created_at AS createdAt, updated_at AS updatedAt
+      FROM model_mappings
+      WHERE alias = ?
+      LIMIT 1
+    `);
+    statement.bind([alias]);
+    const row = statement.step() ? rowToObject<ModelMappingRecord>(statement) : null;
+    statement.free();
+    return row;
   }
 
   insertMapping(record: ModelMappingRecord): void {
@@ -176,14 +308,35 @@ export class DatabaseService {
     this.persist();
   }
 
-  findModelWithProvider(alias: string): (MappingRow & ProviderRow & {
-    mappingId: string;
-    providerRealId: string;
-    mappingCreatedAt: string;
-    mappingUpdatedAt: string;
-    providerCreatedAt: string;
-    providerUpdatedAt: string;
-  }) | null {
+  updateMapping(record: ModelMappingRecord): void {
+    const statement = this.db.prepare(`
+      UPDATE model_mappings
+      SET alias = ?, provider_id = ?, upstream_model = ?,
+          supports_native_tools = ?, requires_xml_shim = ?, supports_streaming = ?, updated_at = ?
+      WHERE id = ?
+    `);
+    statement.run([
+      record.alias,
+      record.providerId,
+      record.upstreamModel,
+      record.supportsNativeTools,
+      record.requiresXmlShim,
+      record.supportsStreaming,
+      record.updatedAt,
+      record.id
+    ]);
+    statement.free();
+    this.persist();
+  }
+
+  deleteMapping(mappingId: string): void {
+    const statement = this.db.prepare(`DELETE FROM model_mappings WHERE id = ?`);
+    statement.run([mappingId]);
+    statement.free();
+    this.persist();
+  }
+
+  findModelWithProvider(alias: string): ModelWithProviderRow | null {
     const statement = this.db.prepare(`
       SELECT
         m.id AS mappingId,
@@ -209,33 +362,56 @@ export class DatabaseService {
     `);
 
     statement.bind([alias]);
-    const row = statement.step()
-      ? rowToObject<MappingRow & ProviderRow & {
-          mappingId: string;
-          providerRealId: string;
-          mappingCreatedAt: string;
-          mappingUpdatedAt: string;
-          providerCreatedAt: string;
-          providerUpdatedAt: string;
-        }>(statement)
-      : null;
+    const row = statement.step() ? rowToObject<ModelWithProviderRow>(statement) : null;
     statement.free();
     return row;
   }
 
-  logRequest(record: RequestLogRecord): void {
+  insertRequestLog(record: RequestLogRecord): void {
     const statement = this.db.prepare(`
-      INSERT INTO request_logs (id, route, model, provider_name, status, detail, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO request_logs (
+        id, request_id, route, client_protocol, model, upstream_model, provider_name, status, duration_ms, detail, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     statement.run([
       record.id,
+      record.requestId,
       record.route,
+      record.clientProtocol,
       record.model,
+      record.upstreamModel,
       record.providerName,
       record.status,
+      record.durationMs,
       record.detail,
       record.createdAt
+    ]);
+    statement.free();
+    this.persist();
+  }
+
+  updateRequestLogByRequestId(
+    requestId: string,
+    patch: {
+      status: "ok" | "error";
+      durationMs: number;
+      detail?: string | null;
+      providerName?: string | null;
+      upstreamModel?: string | null;
+    }
+  ): void {
+    const statement = this.db.prepare(`
+      UPDATE request_logs
+      SET status = ?, duration_ms = ?, detail = ?, provider_name = ?, upstream_model = ?
+      WHERE request_id = ?
+    `);
+    statement.run([
+      patch.status,
+      patch.durationMs,
+      patch.detail ?? null,
+      patch.providerName ?? null,
+      patch.upstreamModel ?? null,
+      requestId
     ]);
     statement.free();
     this.persist();
@@ -250,7 +426,18 @@ export class DatabaseService {
 
   listRecentLogs(limit: number): RequestLogRecord[] {
     const statement = this.db.prepare(`
-      SELECT id, route, model, provider_name AS providerName, status, detail, created_at AS createdAt
+      SELECT
+        id,
+        COALESCE(request_id, id) AS requestId,
+        route,
+        COALESCE(client_protocol, 'anthropic') AS clientProtocol,
+        model,
+        upstream_model AS upstreamModel,
+        provider_name AS providerName,
+        status,
+        duration_ms AS durationMs,
+        detail,
+        created_at AS createdAt
       FROM request_logs
       ORDER BY created_at DESC
       LIMIT ?
@@ -258,7 +445,7 @@ export class DatabaseService {
     statement.bind([limit]);
     const rows: RequestLogRecord[] = [];
     while (statement.step()) {
-      rows.push(rowToObject<RequestLogRecord>(statement));
+      rows.push(rowToObject<RequestLogRow>(statement));
     }
     statement.free();
     return rows;

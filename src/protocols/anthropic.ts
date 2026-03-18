@@ -182,7 +182,57 @@ export const encodeAnthropicStreamEvent = (
   });
 
   events.push(`data: ${JSON.stringify({ type: "message_delta", delta: { stop_reason: final.output.toolCalls.length > 0 ? "tool_use" : final.stopReason } })}\n\n`);
+  events.push(`data: ${JSON.stringify({ type: "message_stop" })}\n\n`);
   events.push("data: [DONE]\n\n");
   return events;
 };
+
+export const encodeAnthropicStreamStart = (eventIdSeed: number): string =>
+  `data: ${JSON.stringify({
+    type: "message_start",
+    message: {
+      id: `msg_${eventIdSeed}`,
+      type: "message",
+      role: "assistant",
+      model: "cc-toolify",
+      content: []
+    }
+  })}\n\n`;
+
+export const encodeAnthropicTextBlockStart = (): string =>
+  `data: ${JSON.stringify({
+    type: "content_block_start",
+    index: 0,
+    content_block: { type: "text", text: "" }
+  })}\n\n`;
+
+export const encodeAnthropicTextDelta = (text: string): string =>
+  `data: ${JSON.stringify({
+    type: "content_block_delta",
+    index: 0,
+    delta: { type: "text_delta", text }
+  })}\n\n`;
+
+export const encodeAnthropicTextBlockStop = (): string =>
+  `data: ${JSON.stringify({ type: "content_block_stop", index: 0 })}\n\n`;
+
+export const encodeAnthropicToolCallBlock = (toolCall: XmlToolCall, index: number): string[] => [
+  `data: ${JSON.stringify({
+    type: "content_block_start",
+    index,
+    content_block: {
+      type: "tool_use",
+      id: toolCall.id,
+      name: toolCall.name,
+      input: toolCall.input
+    }
+  })}\n\n`,
+  `data: ${JSON.stringify({ type: "content_block_stop", index })}\n\n`
+];
+
+export const encodeAnthropicStreamStop = (stopReason: FinalizedRun["stopReason"]): string[] => [
+  `data: ${JSON.stringify({ type: "message_delta", delta: { stop_reason: stopReason } })}\n\n`,
+  `data: ${JSON.stringify({ type: "message_stop" })}\n\n`,
+  "data: [DONE]\n\n"
+];
 
