@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "dev:web": "cd web && pnpm dev",
+    "build": "pnpm build:web && pnpm build:server",
+    "build:server": "tsc -p tsconfig.json",
+    "build:web": "cd web && pnpm build",
     "start": "node dist/index.js",
     "test": "vitest run"
   },

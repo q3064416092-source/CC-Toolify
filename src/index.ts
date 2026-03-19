@@ -144,8 +144,12 @@ app.get("/v1/models", async (_request, response) => {
   });
 });
 
-app.get("/admin", (_request, response) => {
-  response.sendFile(path.resolve(process.cwd(), "public", "admin.html"));
+// Serve static files from web/dist (new React frontend)
+app.use("/admin", express.static(path.resolve(process.cwd(), "web", "dist")));
+
+// Fallback to index.html for React Router
+app.get("/admin/*", (_request, response) => {
+  response.sendFile(path.resolve(process.cwd(), "web", "dist", "index.html"));
 });
 
 app.post("/admin/login", (request, response) => {
