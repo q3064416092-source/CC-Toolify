@@ -12,12 +12,22 @@ function App() {
   const { isAuthenticated, loadBootstrap } = useAuthStore();
 
   useEffect(() => {
-    // Try to load bootstrap on mount to check auth status
-    loadBootstrap();
-  }, [loadBootstrap]);
+    console.log('[App] mount', {
+      pathname: window.location.pathname,
+      href: window.location.href,
+      isAuthenticated,
+    });
+
+    void loadBootstrap();
+  }, [isAuthenticated, loadBootstrap]);
+
+  console.log('[App] render', {
+    pathname: window.location.pathname,
+    isAuthenticated,
+  });
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/admin">
       <Routes>
         <Route
           path="/login"

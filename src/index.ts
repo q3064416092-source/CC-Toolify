@@ -145,9 +145,15 @@ app.get("/v1/models", async (_request, response) => {
 });
 
 // Serve static files from web/dist (new React frontend)
-app.use("/admin", express.static(path.resolve(process.cwd(), "web", "dist")));
+// Serve assets directory specifically - must be BEFORE API routes and SPA fallback
+app.use("/admin/assets", express.static(path.resolve(process.cwd(), "web", "dist", "assets")));
 
-// Fallback to index.html for React Router
+// Fallback to index.html for React Router (SPA)
+// This should be AFTER API routes and static file serving
+app.get("/admin", (_request, response) => {
+  response.sendFile(path.resolve(process.cwd(), "web", "dist", "index.html"));
+});
+
 app.get("/admin/*", (_request, response) => {
   response.sendFile(path.resolve(process.cwd(), "web", "dist", "index.html"));
 });
