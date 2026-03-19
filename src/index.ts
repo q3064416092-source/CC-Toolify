@@ -145,18 +145,9 @@ app.get("/v1/models", async (_request, response) => {
 });
 
 // Serve static files from web/dist (new React frontend)
-// Serve assets directory specifically - must be BEFORE API routes and SPA fallback
+// Assets must be registered before SPA fallback, while SPA fallback itself
+// must be registered after all /admin/api routes.
 app.use("/admin/assets", express.static(path.resolve(process.cwd(), "web", "dist", "assets")));
-
-// Fallback to index.html for React Router (SPA)
-// This should be AFTER API routes and static file serving
-app.get("/admin", (_request, response) => {
-  response.sendFile(path.resolve(process.cwd(), "web", "dist", "index.html"));
-});
-
-app.get("/admin/*", (_request, response) => {
-  response.sendFile(path.resolve(process.cwd(), "web", "dist", "index.html"));
-});
 
 app.post("/admin/login", (request, response) => {
   const password = typeof request.body?.password === "string" ? request.body.password : "";
@@ -351,6 +342,19 @@ app.post("/admin/api/mappings/:mappingId/test", adminOnly, async (request, respo
       result: result.payload
     });
   });
+});
+
+app.get("/admin", (_request, response) => {
+  response.sendFile(path.resolve(process.cwd(), "web", "dist", "index.html"));
+});
+
+app.get("/admin/*", (request, response, next) => {
+  if (request.path.startsWith("/admin/api/") || request.path.startsWith("/admin/assets/")) {
+    next();
+    return;
+  }
+
+  response.sendFile(path.resolve(process.cwd(), "web", "dist", "index.html"));
 });
 
 const handleProxyRequest = async (

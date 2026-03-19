@@ -14,6 +14,12 @@ interface AuthState {
   clearError: () => void;
 }
 
+const normalizeBootstrap = (payload: Partial<BootstrapData> | null | undefined): BootstrapData => ({
+  providers: Array.isArray(payload?.providers) ? payload.providers : [],
+  mappings: Array.isArray(payload?.mappings) ? payload.mappings : [],
+  logs: Array.isArray(payload?.logs) ? payload.logs : [],
+});
+
 export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: false,
@@ -25,7 +31,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       console.log('[authStore.login] start');
       await loginApi(password);
-      const bootstrap = await fetchBootstrap();
+      const bootstrap = normalizeBootstrap(await fetchBootstrap());
       console.log('[authStore.login] success', {
         providers: bootstrap.providers.length,
         mappings: bootstrap.mappings.length,
@@ -54,7 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   loadBootstrap: async () => {
     try {
       console.log('[authStore.loadBootstrap] start');
-      const bootstrap = await fetchBootstrap();
+      const bootstrap = normalizeBootstrap(await fetchBootstrap());
       console.log('[authStore.loadBootstrap] success', {
         providers: bootstrap.providers.length,
         mappings: bootstrap.mappings.length,
@@ -69,4 +75,5 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearError: () => set({ error: null }),
 }));
+
 
