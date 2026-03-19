@@ -403,16 +403,39 @@ const handleProxyRequest = async (
       : null;
 
     if (normalized.stream && run) {
-      if (protocol === "anthropic") {
-        response.write(encodeAnthropicStreamStart(Date.now()));
-        response.write(encodeAnthropicTextBlockStart());
-      } else {
-        response.write(encodeOpenAiStreamRoleChunk());
-      }
+      let firstChunkEmitted = false;
 
       for await (const chunk of run.stream) {
         if (!chunk.textDelta) {
           continue;
+        }
+
+        if (!firstChunkEmitted) {
+          firstChunkEmitted = true;
+          if (protocol === "anthropic") {
+            const pendingFinal = await Promise.race([
+              run.finalized,
+              Promise.resolve(null)
+            ]);
+
+            if (pendingFinal) {
+              response.write(encodeAnthropicStreamStart(Date.now(), pendingFinal));
+            } else {
+              response.write(`data: ${JSON.stringify({
+                type: "message_start",
+                message: {
+                  id: `msg_${Date.now()}`,
+                  type: "message",
+                  role: "assistant",
+                  model: "cc-toolify",
+                  content: []
+                }
+              })}\n\n`);
+            }
+            response.write(encodeAnthropicTextBlockStart());
+          } else {
+            response.write(encodeOpenAiStreamRoleChunk());
+          }
         }
 
         response.write(
@@ -424,8 +447,18 @@ const handleProxyRequest = async (
 
       const final = await run.finalized;
 
+      if (!firstChunkEmitted && protocol === "anthropic") {
+        response.write(encodeAnthropicStreamStart(Date.now(), final));
+      } else if (!firstChunkEmitted && protocol === "openai") {
+        response.write(encodeOpenAiStreamRoleChunk());
+      }
+
       if (protocol === "anthropic") {
-        response.write(encodeAnthropicTextBlockStop());
+        if (final.output.text) {
+          response.write(encodeAnthropicTextBlockStart());
+          response.write(encodeAnthropicTextDelta(final.output.text));
+          response.write(encodeAnthropicTextBlockStop());
+        }
         final.output.toolCalls.forEach((toolCall, index) => {
           for (const event of encodeAnthropicToolCallBlock(toolCall, index + 1)) {
             response.write(event);
@@ -439,11 +472,14 @@ const handleProxyRequest = async (
       } else {
         if (final.output.toolCalls.length > 0) {
           response.write(encodeOpenAiToolCallChunk(final.output.toolCalls));
-          for (const event of encodeOpenAiStreamStop("tool_calls")) {
+          for (const event of encodeOpenAiStreamStop("tool_calls", final)) {
             response.write(event);
           }
         } else {
-          for (const event of encodeOpenAiStreamStop("stop")) {
+          if (!firstChunkEmitted && final.output.text) {
+            response.write(encodeOpenAiTextDelta(final.output.text));
+          }
+          for (const event of encodeOpenAiStreamStop("stop", final)) {
             response.write(event);
           }
         }

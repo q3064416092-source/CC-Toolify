@@ -151,12 +151,18 @@ const mapToolCalls = (toolCalls: XmlToolCall[]) =>
     input: toolCall.input
   }));
 
+const mapUsage = (final: FinalizedRun) => ({
+  input_tokens: final.usage.inputTokens,
+  output_tokens: final.usage.outputTokens
+});
+
 export const encodeAnthropicResponse = (final: FinalizedRun): Record<string, unknown> => ({
   id: `msg_${Date.now()}`,
   type: "message",
   role: "assistant",
   model: "cc-toolify",
   stop_reason: final.output.toolCalls.length > 0 ? "tool_use" : final.stopReason,
+  usage: mapUsage(final),
   content: [
     ...(final.output.text ? [{ type: "text", text: final.output.text }] : []),
     ...mapToolCalls(final.output.toolCalls)
@@ -168,7 +174,7 @@ export const encodeAnthropicStreamEvent = (
   eventIdSeed: number
 ): string[] => {
   const events: string[] = [];
-  events.push(`data: ${JSON.stringify({ type: "message_start", message: { id: `msg_${eventIdSeed}`, type: "message", role: "assistant", model: "cc-toolify", content: [] } })}\n\n`);
+  events.push(`data: ${JSON.stringify({ type: "message_start", message: { id: `msg_${eventIdSeed}`, type: "message", role: "assistant", model: "cc-toolify", usage: mapUsage(final), content: [] } })}\n\n`);
 
   if (final.output.text) {
     events.push(`data: ${JSON.stringify({ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } })}\n\n`);
@@ -187,7 +193,7 @@ export const encodeAnthropicStreamEvent = (
   return events;
 };
 
-export const encodeAnthropicStreamStart = (eventIdSeed: number): string =>
+export const encodeAnthropicStreamStart = (eventIdSeed: number, final: FinalizedRun): string =>
   `data: ${JSON.stringify({
     type: "message_start",
     message: {
@@ -195,6 +201,7 @@ export const encodeAnthropicStreamStart = (eventIdSeed: number): string =>
       type: "message",
       role: "assistant",
       model: "cc-toolify",
+      usage: mapUsage(final),
       content: []
     }
   })}\n\n`;

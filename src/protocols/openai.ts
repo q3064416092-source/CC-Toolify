@@ -265,6 +265,12 @@ const mapToolCalls = (toolCalls: XmlToolCall[]) =>
     }
   }));
 
+const mapUsage = (final: FinalizedRun) => ({
+  prompt_tokens: final.usage.inputTokens,
+  completion_tokens: final.usage.outputTokens,
+  total_tokens: final.usage.totalTokens
+});
+
 export const encodeOpenAiResponse = (final: FinalizedRun): Record<string, unknown> => ({
   id: `chatcmpl_${Date.now()}`,
   object: "chat.completion",
@@ -280,7 +286,8 @@ export const encodeOpenAiResponse = (final: FinalizedRun): Record<string, unknow
         tool_calls: final.output.toolCalls.length > 0 ? mapToolCalls(final.output.toolCalls) : undefined
       }
     }
-  ]
+  ],
+  usage: mapUsage(final)
 });
 
 export const encodeOpenAiStreamEvents = (final: FinalizedRun): string[] => {
@@ -295,6 +302,7 @@ export const encodeOpenAiStreamEvents = (final: FinalizedRun): string[] => {
     events.push(`data: ${JSON.stringify({ id: `chatcmpl_${Date.now()}`, object: "chat.completion.chunk", created: Math.floor(Date.now() / 1000), model: "cc-toolify", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\n`);
   }
 
+  events.push(`data: ${JSON.stringify({ id: `chatcmpl_${Date.now()}`, object: "chat.completion.chunk", created: Math.floor(Date.now() / 1000), model: "cc-toolify", choices: [], usage: mapUsage(final) })}\n\n`);
   events.push("data: [DONE]\n\n");
   return events;
 };
@@ -326,7 +334,7 @@ export const encodeOpenAiToolCallChunk = (toolCalls: XmlToolCall[]): string =>
     choices: [{ index: 0, delta: { tool_calls: mapToolCalls(toolCalls) }, finish_reason: "tool_calls" }]
   })}\n\n`;
 
-export const encodeOpenAiStreamStop = (finishReason: "stop" | "tool_calls"): string[] => [
+export const encodeOpenAiStreamStop = (finishReason: "stop" | "tool_calls", final: FinalizedRun): string[] => [
   `data: ${JSON.stringify({
     id: `chatcmpl_${Date.now()}`,
     object: "chat.completion.chunk",
@@ -334,6 +342,15 @@ export const encodeOpenAiStreamStop = (finishReason: "stop" | "tool_calls"): str
     model: "cc-toolify",
     choices: [{ index: 0, delta: {}, finish_reason: finishReason }]
   })}\n\n`,
+  `data: ${JSON.stringify({
+    id: `chatcmpl_${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: "cc-toolify",
+    choices: [],
+    usage: mapUsage(final)
+  })}\n\n`,
   "data: [DONE]\n\n"
 ];
+
 

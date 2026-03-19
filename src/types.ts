@@ -97,9 +97,17 @@ export interface ParsedAssistantOutput {
   toolCalls: XmlToolCall[];
 }
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  source: "upstream" | "estimated";
+}
+
 export interface FinalizedRun {
   output: ParsedAssistantOutput;
   stopReason: "end_turn" | "tool_use" | "error";
+  usage: TokenUsage;
 }
 
 export interface RequestLogRecord {
