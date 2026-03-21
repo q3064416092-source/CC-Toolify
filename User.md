@@ -237,3 +237,10 @@ Kilo 说
 ```
 *这是kilo在调用edit_file无法正确调用的情况。*
 请找出为何项目用于kilo时，edit_file调用失败率极高(99%)的原因，并提供解决方案。
+
+```
+Kilo说
+<ccx_tool><ccx_name>edit_file</ccx_name><ccx_arguments>{"file_path":"AGENTS.md","old_string":"- Proxy header forwarding is intentionally narrow: only `accept-language` and `user-agent` are copied from client headers.\n","new_string":"- Proxy header forwarding is intentionally narrow: only `accept-language` and `user-agent` are copied from client headers.\n\n---\n\n# AGENTS.md（中文版）\n\n本文件为 AI 助手在此代码库中工作提供指导。\n\n- 运行时是单个 FastAPI 应用 [`main.py`](main.py)；启动时总是调用 [`init_db()`](database.py:168) 并通过直接从磁盘读取 [`templates/dashboard.html`](templates/dashboard.html) 来提供 UI。\n- 本地状态存储在 `data/config.db`（[`database.py`](database.py)），而非根目录配置文件。\n- 仓库未配置 lint 或自动化测试套件；不存在单测试命令。验证通过手动方式：`python main.py`、`start.bat`、`GET /health`、`GET /api/debug/config`、`GET /api/debug/connection-test`。\n- [`start.bat`](start.bat) 不是轻量级启动器：每次启动时若缺少 `venv/` 则创建，并运行 `pip install -r requirements.txt`。\n- 请求路由是 profile 驱动的：`/v1/chat/completions` 和 `/v1/messages` 首先调用 [`get_profile_by_model(model)`](database.py:289)，仅当没有启用的 profile 声明该 model 时才回退到活动 profile。\n- `supported_models` 必须在所有 profile 中保持唯一；[`update_profile()`](database.py:367) 拒绝重复，[`duplicate_profile()`](database.py:351) / profile 导入会故意清空 `supported_models`。\n- 模板处理必须保留最后一条用户消息之后的消息；[`split_history()`](main.py:352) 返回 history + last user message + trailing tool-call/tool-response 消息，两个消息构建器都会追加 trailing 段。\n- `history` 按设计排除最后一条用户消息；最后一条用户消息必须来自专用的 `last_user_message` 块。\n- Prompt 触发 regex 和响应 regex 规则在模式无效时静默失败（[`should_trigger()`](main.py:332)、[`apply_regex_rules()`](main.py:435)），因此错误模式会降级行为而不报错。\n- [`get_upstream_url()`](main.py:463) 有特殊转义：以 `#` 结尾的 `base_url` 会被原样使用，跳过自动添加 `/v1/...` 后缀。\n- 流式行为对配置敏感：OpenAI 流式仅在 thinking-filter-only 模式下保持实时；任何启用的 regex 规则会强制缓冲输出，流式 UX 会变化。\n- Anthropic model 发现是硬编码在 [`api_fetch_models()`](main.py:100) 中的；`/api/profiles/{id}/fetch-models` 不会调用 Anthropic profile 的上游 `/models` 端点。\n- 代理头转发故意收窄：仅复制客户端头中的 `accept-language` 和 `user-agent`。\n"}]</ccx_arguments></ccx_tool>
+```
+
+还是没能修复成功，请分析：是否能够通过增加宽容模式，降低调用失败率？
