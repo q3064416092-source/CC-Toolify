@@ -25,6 +25,7 @@ describe("xml shim parser", () => {
     expect(consumed.toolCalls).toHaveLength(1);
     expect(consumed.toolCalls[0]?.name).toBe("get_weather");
     expect(consumed.toolCalls[0]?.input).toEqual({ city: "Shanghai" });
+    expect(consumed.warnings).toEqual([]);
   });
 
   it("keeps natural-language lead-in while extracting the following tool call", () => {
@@ -52,6 +53,7 @@ describe("xml shim parser", () => {
   it("keeps malformed tool XML as visible text", () => {
     const consumed = consumeXmlText(createParserState(), "Hello <tool_call><name>oops</name></tool_call>", "legacy");
     expect(consumed.toolCalls).toHaveLength(0);
+    expect(consumed.warnings[0]).toContain("Malformed tool_call block");
     expect(finalizeXmlText(consumed.state)).toContain("<tool_call>");
   });
 
@@ -143,6 +145,50 @@ describe("xml shim parser", () => {
     expect(consumed.toolCalls[0]?.input).toEqual({ description: "explore", prompt: "scan project" });
   });
 
+  it("repairs edit_file arguments with trailing junk after a valid JSON object", () => {
+    const consumed = consumeXmlText(
+      createParserState(),
+      "<ccx_tool><ccx_name>edit_file</ccx_name><ccx_arguments>{\"file_path\":\"AGENTS.md\",\"old_string\":\"API请求\\n13:25\\n$0.0000\",\"new_string\":\"API请求\\n13:25\\n$0.0000\\n\\n---\\n\\n# AGENTS.md（中文版）\"}]</ccx_arguments></ccx_tool>",
+      "private_v1"
+    );
+
+    expect(consumed.toolCalls).toHaveLength(1);
+    expect(consumed.toolCalls[0]?.name).toBe("edit_file");
+    expect(consumed.toolCalls[0]?.input).toEqual({
+      file_path: "AGENTS.md",
+      old_string: "API请求\n13:25\n$0.0000",
+      new_string: "API请求\n13:25\n$0.0000\n\n---\n\n# AGENTS.md（中文版）"
+    });
+  });
+
+  it("repairs edit_file arguments containing literal newlines inside JSON strings", () => {
+    const consumed = consumeXmlText(
+      createParserState(),
+      "<ccx_tool><ccx_name>edit_file</ccx_name><ccx_arguments>{\"file_path\":\"AGENTS.md\",\"old_string\":\"line1\nline2\",\"new_string\":\"中文段落\n第二行\"}</ccx_arguments></ccx_tool>",
+      "private_v1"
+    );
+
+    expect(consumed.toolCalls).toHaveLength(1);
+    expect(consumed.toolCalls[0]?.input).toEqual({
+      file_path: "AGENTS.md",
+      old_string: "line1\nline2",
+      new_string: "中文段落\n第二行"
+    });
+  });
+
+  it("reports an explicit warning when direct tool arguments are still invalid", () => {
+    const consumed = consumeXmlText(
+      createParserState(),
+      "edit_file({\"file_path\":\"AGENTS.md\",\"old_string\":\"x\",\"new_string\":invalid})",
+      "private_v1",
+      ["edit_file"]
+    );
+
+    expect(consumed.toolCalls).toHaveLength(0);
+    expect(consumed.warnings[0]).toContain("Failed to parse direct tool arguments for edit_file");
+    expect(finalizeXmlText(consumed.state)).toContain("edit_file(");
+  });
+
   it("does not parse Claude Code style direct calls unless the tool is explicitly enabled", () => {
     const consumed = consumeXmlText(
       createParserState(),
@@ -157,5 +203,12 @@ describe("xml shim parser", () => {
     const prompt = buildXmlShimPrompt([{ name: "Read" }], "private_v1", "claude_code");
     expect(prompt).toContain("Claude Code compatibility mode is enabled.");
     expect(prompt).toContain("ToolName({...})");
+  });
+
+  it("renders stricter guidance for mutation tools with large string arguments", () => {
+    const prompt = buildXmlShimPrompt([{ name: "edit_file" }], "private_v1", "claude_code");
+    expect(prompt).toContain("For write or edit tools, emit the tool call with no natural-language lead-in.");
+    expect(prompt).toContain("The arguments payload must be valid JSON.");
+    expect(prompt).toContain("escaped newlines");
   });
 });

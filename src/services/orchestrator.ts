@@ -103,6 +103,7 @@ export class OrchestratorService {
     let fullText = "";
     let parser = createParserState();
     const toolCalls: XmlToolCall[] = [];
+    const parserWarnings: string[] = [];
 
     let resolveFinalized!: (value: FinalizedRun) => void;
     let rejectFinalized!: (reason?: unknown) => void;
@@ -121,7 +122,8 @@ export class OrchestratorService {
           toolCalls: finalToolCalls
         },
         stopReason: toolCalls.length > 0 ? "tool_use" : stopReason,
-        usage: buildEstimatedUsage(request, text, finalToolCalls)
+        usage: buildEstimatedUsage(request, text, finalToolCalls),
+        parserWarnings: Array.from(new Set(parserWarnings))
       });
     };
 
@@ -147,6 +149,9 @@ export class OrchestratorService {
             runtime.variant === "claude_code" ? request.tools.map((tool) => tool.name) : []
           );
           parser = consumed.state;
+          if (consumed.warnings.length > 0) {
+            parserWarnings.push(...consumed.warnings);
+          }
 
           if (consumed.newText) {
             yield { textDelta: consumed.newText };

@@ -217,3 +217,23 @@ Tool mcp__CherryFetch__fetchHtml does not exists.Tool mcp__CherryFetch__fetchMar
   ⎿  claude_compat.py
 ```
 (全部使用的是新xml格式)这是我这几天使用项目在Claude Code CLI重遇到的问题，请针对性提出解决方案和修复方案
+
+
+---
+
+3.21
+
+```
+你说
+植入翻译后的中文版在原版下面
+
+API请求
+13:25
+$0.0000
+
+
+Kilo 说
+<ccx_tool><ccx_name>edit_file</ccx_name><ccx_arguments>{"file_path":"AGENTS.md","old_string":"- Proxy header forwarding is intentionally narrow: only accept-language and user-agent are copied from client headers.","new_string":"- Proxy header forwarding is intentionally narrow: only accept-language and user-agent are copied from client headers.\n\n---\n\n# AGENTS.md（中文版）\n\n本文件为 AI 助手提供代码库工作指引。\n\n- 运行时为单 FastAPI 应用 main.py；启动时始终调用 init_db() 并通过直接读取磁盘文件 templates/dashboard.html 提供 UI。\n- 本地状态存储在 data/config.db（database.py），非根目录配置文件。\n- 无配置的 lint 或自动化测试套件；无单测命令。验证通过手动执行 python main.py、start.bat、GET /health、GET /api/debug/config、GET /api/debug/connection-test。\n- start.bat 非轻量启动器：若 venv/ 不存在则创建，且每次启动均执行 pip install -r requirements.txt。\n- 请求路由为 profile 驱动：/v1/chat/completions 和 /v1/messages 先调用 get_profile_by_model(model)，仅当无启用的 profile 声明该模型时才回退到活动 profile。\n- supported_models 必须在所有 profile 间保持唯一；update_profile() 拒绝重复，duplicate_profile() / profile 导入会清空 supported_models。\n- 模板处理必须保留最后用户轮次后的消息；split_history() 返回 history + last user message + trailing tool-call/tool-response 消息，两个消息构建器均会追加 trailing 段。\n- history 按设计排除最终用户消息；最后用户轮次必须来自专用的 last_user_message 块。\n- Prompt 触发 regex 和响应 regex 规则在无效模式时静默失败（should_trigger()、apply_regex_rules()），错误模式会降级行为但不报错。\n- get_upstream_url() 有特殊转义：base_url 以 # 结尾时原样使用，跳过自动 /v1/... 后缀。\n- 流式行为配置敏感：OpenAI 流式仅在 thinking-filter-only 模式下保持实时；任何启用的 regex 规则强制缓冲输出，流式 UX 会变化。\n- Anthropic 模型发现硬编码在 api_fetch_models()；/api/profiles/{id}/fetch-models 对 Anthropic profile 不调用上游 /models 端点。\n- 代理头转发故意窄：仅复制 accept-language 和 user-agent 从客户端头。"}]</ccx_arguments></ccx_tool>
+```
+*这是kilo在调用edit_file无法正确调用的情况。*
+请找出为何项目用于kilo时，edit_file调用失败率极高(99%)的原因，并提供解决方案。

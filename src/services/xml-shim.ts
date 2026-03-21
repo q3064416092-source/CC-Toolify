@@ -50,6 +50,159 @@ const getParserDialects = (style: XmlShimStyle): ShimDialect[] => {
 const openTag = (tag: string): string => `<${tag}>`;
 const closeTag = (tag: string): string => `</${tag}>`;
 
+const normalizeJsonStringControls = (value: string): string => {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index]!;
+
+    if (escaped) {
+      result += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      result += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === "\"") {
+      result += char;
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      if (char === "\n") {
+        result += "\\n";
+        continue;
+      }
+      if (char === "\r") {
+        result += "\\r";
+        continue;
+      }
+      if (char === "\t") {
+        result += "\\t";
+        continue;
+      }
+    }
+
+    result += char;
+  }
+
+  return result;
+};
+
+const extractBalancedJson = (value: string): string | null => {
+  const trimmed = value.trim();
+  const startIndex = trimmed.search(/[{[]/);
+  if (startIndex < 0) {
+    return null;
+  }
+
+  const startChar = trimmed[startIndex];
+  const expectedEnd = startChar === "{" ? "}" : "]";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = startIndex; index < trimmed.length; index += 1) {
+    const char = trimmed[index]!;
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === startChar) {
+      depth += 1;
+      continue;
+    }
+
+    if (char === expectedEnd) {
+      depth -= 1;
+      if (depth === 0) {
+        return trimmed.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  return null;
+};
+
+const stripTrailingClosers = (value: string): string => {
+  let candidate = value.trim();
+
+  while (candidate.length > 0) {
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {
+      const last = candidate[candidate.length - 1];
+      if (last !== "]" && last !== "}") {
+        break;
+      }
+      candidate = candidate.slice(0, -1).trimEnd();
+    }
+  }
+
+  return value.trim();
+};
+
+const tryParseJsonObject = (value: string): Record<string, unknown> | null => {
+  const attempts = new Set<string>();
+  const pushAttempt = (candidate: string | null | undefined): void => {
+    if (!candidate) {
+      return;
+    }
+    const normalized = candidate.trim();
+    if (normalized) {
+      attempts.add(normalized);
+    }
+  };
+
+  pushAttempt(value);
+  pushAttempt(normalizeJsonStringControls(value));
+
+  const balanced = extractBalancedJson(value);
+  pushAttempt(balanced);
+  pushAttempt(balanced ? normalizeJsonStringControls(balanced) : null);
+
+  for (const attempt of Array.from(attempts)) {
+    const variants = [attempt, stripTrailingClosers(attempt)];
+    for (const variant of variants) {
+      try {
+        const parsed = JSON.parse(variant);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        // Continue to the next repair attempt.
+      }
+    }
+  }
+
+  return null;
+};
+
 const extractTag = (body: string, tag: string): string | null => {
   const match = body.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
   return match ? match[1].trim() : null;
@@ -66,23 +219,51 @@ const renderToolResult = (
 ): string =>
   `<${dialect.resultTag} ${dialect.resultToolUseIdAttr}="${toolUseId}" ${dialect.resultErrorAttr}="${isError ? "true" : "false"}">${content}</${dialect.resultTag}>`;
 
-const parseToolCall = (innerXml: string, dialect: ShimDialect): XmlToolCall | null => {
+const parseToolCall = (innerXml: string, dialect: ShimDialect): { toolCall: XmlToolCall | null; warning?: string } => {
   const name = extractTag(innerXml, dialect.nameTag);
   const argumentsText = extractTag(innerXml, dialect.argsTag);
   if (!name || !argumentsText) {
-    return null;
+    return {
+      toolCall: null,
+      warning: `Malformed ${dialect.callTag} block: missing ${!name ? dialect.nameTag : dialect.argsTag}`
+    };
   }
 
-  try {
+  const parsed = tryParseJsonObject(argumentsText);
+  if (!parsed) {
     return {
+      toolCall: null,
+      warning: `Failed to parse tool arguments for ${name} via ${dialect.callTag}`
+    };
+  }
+
+  return {
+    toolCall: {
       id: `toolu_${crypto.randomUUID()}`,
       name,
-      input: JSON.parse(argumentsText) as Record<string, unknown>,
+      input: parsed,
       raw: `${openTag(dialect.callTag)}${innerXml}${closeTag(dialect.callTag)}`
+    }
+  };
+};
+
+const tryParseDirectToolInput = (name: string, raw: string): { toolCall: XmlToolCall | null; warning?: string } => {
+  const parsed = tryParseJsonObject(raw);
+  if (!parsed) {
+    return {
+      toolCall: null,
+      warning: `Failed to parse direct tool arguments for ${name}`
     };
-  } catch {
-    return null;
   }
+
+  return {
+    toolCall: {
+      id: `toolu_${crypto.randomUUID()}`,
+      name,
+      input: parsed,
+      raw
+    }
+  };
 };
 
 export const buildXmlShimPrompt = (
@@ -108,6 +289,16 @@ export const buildXmlShimPrompt = (
         "Only call tools that are listed below. If a Claude Code tool name is not listed, ignore it and do not mention missing tools."
       ].join("\n")
     : "";
+  const hasLargeStringMutationTool = tools.some((tool) =>
+    ["edit_file", "write_file", "apply_patch"].includes(tool.name)
+  );
+  const mutationRule = hasLargeStringMutationTool
+    ? [
+        "For write or edit tools, emit the tool call with no natural-language lead-in.",
+        "The arguments payload must be valid JSON.",
+        "When an argument contains multi-line replacement text, keep it inside a JSON string with escaped newlines."
+      ].join("\n")
+    : "";
 
   return [
     "You do not have native tool calling.",
@@ -120,6 +311,7 @@ export const buildXmlShimPrompt = (
     resultExample,
     extraRule,
     variantRule,
+    mutationRule,
     "Do not use markdown fences around the XML.",
     "Do not invent tools that are not listed.",
     "After tool results arrive, continue the answer normally unless another tool call is needed.",
@@ -201,11 +393,12 @@ export const consumeXmlText = (
   incomingText: string,
   style: XmlShimStyle = "legacy",
   directToolNames: string[] = []
-): { state: ParserState; newText: string; toolCalls: XmlToolCall[] } => {
+): { state: ParserState; newText: string; toolCalls: XmlToolCall[]; warnings: string[] } => {
   const dialects = getParserDialects(style);
   let remaining = state.buffer + incomingText;
   let plainText = "";
   const toolCalls: XmlToolCall[] = [];
+  const warnings: string[] = [];
   let nextBuffer = "";
 
   const sortedDirectToolNames = Array.from(new Set(directToolNames.filter(Boolean))).sort((a, b) => b.length - a.length);
@@ -253,7 +446,7 @@ export const consumeXmlText = (
     text: string,
     startIndex: number,
     name: string
-  ): { index: number; endIndex: number; toolCall: XmlToolCall | null; incomplete: boolean } => {
+  ): { index: number; endIndex: number; toolCall: XmlToolCall | null; warning?: string; incomplete: boolean } => {
     let cursor = startIndex + name.length;
     while (cursor < text.length && /\s/.test(text[cursor] ?? "")) {
       cursor += 1;
@@ -280,27 +473,14 @@ export const consumeXmlText = (
         };
       }
 
-      const raw = text.slice(startIndex, end + 1);
-      try {
-        return {
-          index: startIndex,
-          endIndex: end + 1,
-          toolCall: {
-            id: `toolu_${crypto.randomUUID()}`,
-            name,
-            input: JSON.parse(text.slice(cursor, end + 1)) as Record<string, unknown>,
-            raw
-          },
-          incomplete: false
-        };
-      } catch {
-        return {
-          index: startIndex,
-          endIndex: end + 1,
-          toolCall: null,
-          incomplete: false
-        };
-      }
+      const parsed = tryParseDirectToolInput(name, text.slice(cursor, end + 1));
+      return {
+        index: startIndex,
+        endIndex: end + 1,
+        toolCall: parsed.toolCall,
+        warning: parsed.warning,
+        incomplete: false
+      };
     }
 
     if (opener !== "(") {
@@ -322,34 +502,21 @@ export const consumeXmlText = (
       };
     }
 
-    const raw = text.slice(startIndex, end + 1);
-    try {
-      return {
-        index: startIndex,
-        endIndex: end + 1,
-        toolCall: {
-          id: `toolu_${crypto.randomUUID()}`,
-          name,
-          input: JSON.parse(text.slice(cursor + 1, end).trim()) as Record<string, unknown>,
-          raw
-        },
-        incomplete: false
-      };
-    } catch {
-      return {
-        index: startIndex,
-        endIndex: end + 1,
-        toolCall: null,
-        incomplete: false
-      };
-    }
+    const parsed = tryParseDirectToolInput(name, text.slice(cursor + 1, end).trim());
+    return {
+      index: startIndex,
+      endIndex: end + 1,
+      toolCall: parsed.toolCall,
+      warning: parsed.warning,
+      incomplete: false
+    };
   };
 
   const findNextDirectToolCall = (
     text: string
-  ): { index: number; endIndex: number; toolCall: XmlToolCall | null; incomplete: boolean } | null => {
+  ): { index: number; endIndex: number; toolCall: XmlToolCall | null; warning?: string; incomplete: boolean } | null => {
     let best:
-      | { index: number; endIndex: number; toolCall: XmlToolCall | null; incomplete: boolean }
+      | { index: number; endIndex: number; toolCall: XmlToolCall | null; warning?: string; incomplete: boolean }
       | null = null;
 
     for (const name of sortedDirectToolNames) {
@@ -441,7 +608,13 @@ export const consumeXmlText = (
 
       if (nextDirect.toolCall) {
         toolCalls.push(nextDirect.toolCall);
+        if (nextDirect.warning) {
+          warnings.push(nextDirect.warning);
+        }
       } else {
+        if (nextDirect.warning) {
+          warnings.push(nextDirect.warning);
+        }
         plainText += remaining.slice(nextDirect.index, nextDirect.endIndex);
       }
 
@@ -465,9 +638,12 @@ export const consumeXmlText = (
 
     const innerXml = remaining.slice(nextOpen.index + opening.length, closeIndex);
     const parsed = parseToolCall(innerXml, nextOpen.dialect);
-    if (parsed) {
-      toolCalls.push(parsed);
+    if (parsed.toolCall) {
+      toolCalls.push(parsed.toolCall);
     } else {
+      if (parsed.warning) {
+        warnings.push(parsed.warning);
+      }
       plainText += remaining.slice(nextOpen.index, closeIndex + closing.length);
     }
 
@@ -481,7 +657,8 @@ export const consumeXmlText = (
       visibleText: nextVisible
     },
     newText: plainText,
-    toolCalls
+    toolCalls,
+    warnings
   };
 };
 

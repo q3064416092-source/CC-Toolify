@@ -503,11 +503,14 @@ const handleProxyRequest = async (
       : encodeOpenAiResponse(final);
 
     response.json(payload);
+    const detail = final.parserWarnings && final.parserWarnings.length > 0
+      ? final.parserWarnings.join(" | ")
+      : null;
     completeRequestLog(
       requestId,
       "ok",
       startedAt,
-      null,
+      detail,
       runtime.provider.name,
       runtime.mapping.upstreamModel
     );

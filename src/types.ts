@@ -108,6 +108,7 @@ export interface FinalizedRun {
   output: ParsedAssistantOutput;
   stopReason: "end_turn" | "tool_use" | "error";
   usage: TokenUsage;
+  parserWarnings?: string[];
 }
 
 export interface RequestLogRecord {
